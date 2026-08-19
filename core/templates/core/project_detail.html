@@ -24,6 +24,9 @@
   {% endif %}
   <a href="{% url 'project_update' project.pk %}" role="button" class="secondary">Edit</a>
   <a href="{% url 'project_list' %}" role="button" class="secondary outline">All projects</a>
+  <span style="margin-left:auto">
+    <a href="{% url 'project_delete' project.pk %}" class="muted">Delete</a>
+  </span>
 </div>
 
 <h2>Parts list</h2>

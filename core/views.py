@@ -185,6 +185,26 @@ class ProjectUpdateView(OwnedMixin, UpdateView):
         return reverse("project_detail", args=[self.object.pk])
 
 
+class ProjectDeleteView(OwnedMixin, DeleteView):
+    model = Project
+    template_name = "core/project_confirm_delete.html"
+    success_url = reverse_lazy("project_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        project = self.object
+        context["lines"] = project.lines.select_related("part")
+        context["total_held"] = sum(line.remaining for line in context["lines"])
+        context["summary"] = project.teardown_summary()
+        return context
+
+    def form_valid(self, form):
+        name = str(self.object)
+        response = super().form_valid(form)
+        messages.success(self.request, f"Deleted {name}.")
+        return response
+
+
 def _get_project(request, pk):
     return get_object_or_404(Project, pk=pk, user=request.user)
 
