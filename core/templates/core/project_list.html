@@ -1,0 +1,72 @@
+{% extends "core/base.html" %}
+{% block title %}Projects{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>Projects</h1>
+  <p>A project holds parts until you tear it down.</p>
+</hgroup>
+
+<p><a href="{% url 'project_create' %}" role="button">New project</a></p>
+
+<h2>Active</h2>
+{% if active %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col" class="num">Parts</th>
+      <th scope="col">Started</th>
+      <th scope="col"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for project in active %}
+    <tr>
+      <th scope="row"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></th>
+      <td class="num">{{ project.n_lines }}</td>
+      <td class="muted">{{ project.created_at|date:"j M Y" }}</td>
+      <td style="white-space:nowrap">
+        {% if project.n_lines %}
+          <a href="{% url 'project_teardown' project.pk %}" role="button"
+             class="secondary btn-sm">Tear down</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% else %}
+  <p class="muted">Nothing on the bench.</p>
+{% endif %}
+
+<h2>Torn down</h2>
+{% if archived %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col" class="num">Parts</th>
+      <th scope="col">Torn down</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for project in archived %}
+    <tr>
+      <th scope="row"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></th>
+      <td class="num">{{ project.n_lines }}</td>
+      <td class="muted">{{ project.archived_at|date:"j M Y" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+<p class="muted"><small>Archived projects hold nothing, but they keep the record
+of what they were built from and what it cost you in dead parts.</small></p>
+{% else %}
+  <p class="muted">Nothing torn down yet.</p>
+{% endif %}
+{% endblock %}

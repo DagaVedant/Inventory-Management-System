@@ -1,0 +1,67 @@
+{% extends "core/base.html" %}
+{% block title %}Tear down {{ project.name }}{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>Tear down {{ project.name }}</h1>
+  <p>This project is holding <strong>{{ total_held }}</strong>
+     part{{ total_held|pluralize }}. Say what became of each one.</p>
+</hgroup>
+
+<article>
+  <strong>Returned</strong> go back on the shelf and become available again.<br>
+  <strong>Soldered in</strong> and <strong>broken</strong> leave your inventory
+  for good — those are the only two ways a part disappears.
+</article>
+
+<form method="post">
+  {% csrf_token %}
+  {{ formset.management_form }}
+
+  {% if formset.non_form_errors %}
+    <article>{{ formset.non_form_errors }}</article>
+  {% endif %}
+
+  <figure>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Part</th>
+        <th scope="col" class="num">Allocated</th>
+        <th scope="col" class="num">Still held</th>
+        <th scope="col" class="num">Returned</th>
+        <th scope="col" class="num">Soldered in</th>
+        <th scope="col" class="num">Broken</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for form, line in rows %}
+      <tr>
+        <th scope="row">
+          {{ form.line_id }}
+          {% if line %}{{ line.part }}{% else %}<em>unknown line</em>{% endif %}
+          {% if form.non_field_errors %}
+            <br><small class="zero">{{ form.non_field_errors.0 }}</small>
+          {% endif %}
+        </th>
+        <td class="num muted">{% if line %}{{ line.qty_allocated }}{% endif %}</td>
+        <td class="num"><strong>{% if line %}{{ line.remaining }}{% endif %}</strong></td>
+        <td class="num">{{ form.qty_returned }}</td>
+        <td class="num">{{ form.qty_soldered }}</td>
+        <td class="num">{{ form.qty_broken }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </figure>
+
+  <p class="muted"><small>Each row must add up to exactly what's still held —
+  no leftovers. Everything is pre-filled as returned, so a clean teardown is one
+  click.</small></p>
+
+  <div style="display:flex; gap:.5rem; align-items:center;">
+    <button type="submit">Tear down and archive</button>
+    <a href="{{ detail_url }}" class="muted">Cancel</a>
+  </div>
+</form>
+{% endblock %}

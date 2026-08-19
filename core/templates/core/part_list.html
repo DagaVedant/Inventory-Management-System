@@ -1,0 +1,79 @@
+{% extends "core/base.html" %}
+{% block title %}Parts{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>Parts</h1>
+  <p>{{ total_parts }} in the bin. <strong>Available</strong> is what you own
+     minus what active projects are holding.</p>
+</hgroup>
+
+<div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+  <form method="get" role="search" style="flex:1; min-width:16rem; margin:0;">
+    <input type="search" name="q" value="{{ query }}" autofocus
+           placeholder="Search name, value, package, tags, notes">
+  </form>
+  <a href="{% url 'part_create' %}" role="button">Add part</a>
+</div>
+
+{% if parts %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col">Value</th>
+      <th scope="col">Package</th>
+      <th scope="col" class="num">Owned</th>
+      <th scope="col" class="num">Held</th>
+      <th scope="col" class="num">Available</th>
+      <th scope="col">Tags</th>
+      <th scope="col"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for part in parts %}
+    <tr>
+      <th scope="row">{{ part.name }}</th>
+      <td>{{ part.value|default:"" }}</td>
+      <td class="muted">{{ part.package|default:"" }}</td>
+      <td class="num">{{ part.qty_owned }}</td>
+      <td class="num {% if part.held %}{% else %}muted{% endif %}">{{ part.held }}</td>
+      <td class="num {% if part.available == 0 %}zero{% endif %}">
+        <strong>{{ part.available }}</strong>
+      </td>
+      <td>
+        {% for tag in part.tag_list %}<span class="tag">{{ tag }}</span>{% endfor %}
+      </td>
+      <td style="white-space:nowrap">
+        <a href="{% url 'part_update' part.pk %}" class="btn-sm" role="button">Edit</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+
+{% if is_paginated %}
+<nav>
+  {% if page_obj.has_previous %}
+    <a href="?q={{ query }}&page={{ page_obj.previous_page_number }}">Previous</a>
+  {% endif %}
+  <span class="muted">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+    <a href="?q={{ query }}&page={{ page_obj.next_page_number }}">Next</a>
+  {% endif %}
+</nav>
+{% endif %}
+
+{% elif query %}
+  <p class="muted">Nothing matches “{{ query }}”.</p>
+{% else %}
+  <article>
+    <p>No parts yet.</p>
+    <p class="muted">Start with whatever is on top of the bin. You can add the
+       rest as you go — a half-entered inventory is more useful than none.</p>
+    <a href="{% url 'part_create' %}" role="button">Add the first one</a>
+  </article>
+{% endif %}
+{% endblock %}

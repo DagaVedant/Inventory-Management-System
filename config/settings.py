@@ -161,3 +161,9 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# Auth routing for the built-in login/logout views.
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "part_list"
+LOGOUT_REDIRECT_URL = "login"

@@ -257,6 +257,14 @@ class ProjectPart(models.Model):
         if not self.part_id:
             return
 
+        # Django runs model clean() even when a form field failed validation,
+        # so any of these can still be None at this point.
+        if self.qty_allocated is None:
+            return
+        self.qty_returned = self.qty_returned or 0
+        self.qty_soldered = self.qty_soldered or 0
+        self.qty_broken = self.qty_broken or 0
+
         accounted = self.qty_returned + self.qty_soldered + self.qty_broken
         if accounted > self.qty_allocated:
             raise ValidationError(
