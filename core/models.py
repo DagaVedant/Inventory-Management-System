@@ -1,5 +1,7 @@
 from django.conf import settings
-from django.db import models
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
+from django.utils import timezone
 from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
 
@@ -130,6 +132,63 @@ class Project(models.Model):
     def is_active(self):
         return self.status == ProjectStatus.ACTIVE
 
+    @transaction.atomic
+    def tear_down(self, outcomes):
+        """Archive this project, deciding the fate of everything it holds.
+
+        `outcomes` is an iterable of (ProjectPart, returned, soldered, broken).
+        Every line must be accounted for exactly: the three numbers must sum to
+        that line's `remaining`. Returned parts become available again; soldered
+        and broken ones leave `qty_owned` permanently.
+
+        All of it lands in one transaction. A partial teardown would leave every
+        quantity in the app silently wrong.
+        """
+        if self.status != ProjectStatus.ACTIVE:
+            raise ValidationError("This project has already been torn down.")
+
+        outcomes = list(outcomes)
+        seen = set()
+        for line, returned, soldered, broken in outcomes:
+            if line.project_id != self.pk:
+                raise ValidationError("Allocation line does not belong to this project.")
+            if min(returned, soldered, broken) < 0:
+                raise ValidationError("Quantities cannot be negative.")
+            if returned + soldered + broken != line.remaining:
+                raise ValidationError(
+                    f"{line.part}: must account for exactly {line.remaining}, "
+                    f"got {returned + soldered + broken}."
+                )
+            seen.add(line.pk)
+
+        expected = set(self.lines.values_list("pk", flat=True))
+        if seen != expected:
+            raise ValidationError("Every allocation line must be accounted for.")
+
+        for line, returned, soldered, broken in outcomes:
+            line.qty_returned += returned
+            line.qty_soldered += soldered
+            line.qty_broken += broken
+            line.save(update_fields=["qty_returned", "qty_soldered", "qty_broken"])
+
+            lost = soldered + broken
+            if lost:
+                Part.objects.filter(pk=line.part_id).update(
+                    qty_owned=models.F("qty_owned") - lost
+                )
+
+        self.status = ProjectStatus.ARCHIVED
+        self.archived_at = timezone.now()
+        self.save(update_fields=["status", "archived_at"])
+
+    def teardown_summary(self):
+        """What this build cost, for the archived view."""
+        return self.lines.aggregate(
+            returned=models.Sum("qty_returned"),
+            soldered=models.Sum("qty_soldered"),
+            broken=models.Sum("qty_broken"),
+        )
+
 
 class ProjectPart(models.Model):
     """One line of a project's BOM: this part, this many, and what became of them."""
@@ -187,3 +246,55 @@ class ProjectPart(models.Model):
     def lost(self):
         """Gone for good: soldered into the board or burned out."""
         return self.qty_soldered + self.qty_broken
+
+    def clean(self):
+        """You cannot allocate parts you do not have.
+
+        `available` for this line means qty_owned minus what *other* active
+        projects are holding - a line must not count against itself, or editing
+        an existing allocation would always look like an over-allocation.
+        """
+        if not self.part_id:
+            return
+
+        accounted = self.qty_returned + self.qty_soldered + self.qty_broken
+        if accounted > self.qty_allocated:
+            raise ValidationError(
+                f"Returned + soldered + broken is {accounted}, which is more "
+                f"than the {self.qty_allocated} allocated."
+            )
+
+        if self.project_id and not self.project.is_active:
+            return
+
+        held_elsewhere = (
+            ProjectPart.objects.filter(
+                part_id=self.part_id,
+                project__status=ProjectStatus.ACTIVE,
+            )
+            .exclude(pk=self.pk)
+            .aggregate(
+                held=Coalesce(
+                    Sum(
+                        F("qty_allocated")
+                        - F("qty_returned")
+                        - F("qty_soldered")
+                        - F("qty_broken")
+                    ),
+                    0,
+                )
+            )["held"]
+        )
+
+        available = self.part.qty_owned - held_elsewhere
+        wanted = self.qty_allocated - accounted
+        if wanted > available:
+            raise ValidationError(
+                {
+                    "qty_allocated": (
+                        f"Only {available} of {self.part} available - "
+                        f"you own {self.part.qty_owned} and other active "
+                        f"projects are holding {held_elsewhere}."
+                    )
+                }
+            )
