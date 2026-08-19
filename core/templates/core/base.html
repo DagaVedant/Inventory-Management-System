@@ -1,0 +1,62 @@
+{% load static %}<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Parts{% endblock %} · Inventory</title>
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root { --pico-form-element-spacing-vertical: .5rem; }
+    body > main { padding-block: 1.5rem; }
+    .topbar { display:flex; gap:1rem; align-items:baseline; flex-wrap:wrap;
+              border-bottom:1px solid var(--pico-muted-border-color);
+              padding-block:.75rem; margin-bottom:1.5rem; }
+    .topbar .spacer { margin-left:auto; }
+    .topbar a { text-decoration:none; }
+    .topbar strong a { font-weight:700; }
+    table { font-size:.9rem; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .muted { color:var(--pico-muted-color); }
+    .tag { display:inline-block; font-size:.72rem; padding:.1rem .45rem;
+           border:1px solid var(--pico-muted-border-color); border-radius:1rem;
+           margin-right:.25rem; color:var(--pico-muted-color); }
+    .flash { margin-bottom:1rem; }
+    .inline-form { display:inline; }
+    .inline-form input[type=number] { width:4.5rem; display:inline-block;
+                                      margin:0 .25rem 0 0; }
+    .btn-sm { padding:.2rem .5rem; font-size:.75rem; margin:0; width:auto;
+              display:inline-block; }
+    .zero { color:var(--pico-del-color); font-weight:700; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  {% if user.is_authenticated %}
+  <nav class="topbar">
+    <strong><a href="{% url 'part_list' %}">Inventory</a></strong>
+    <a href="{% url 'part_list' %}">Parts</a>
+    <a href="{% url 'project_list' %}">Projects</a>
+    <span class="spacer"></span>
+    <span class="muted">{{ user.username }}</span>
+    <form method="post" action="{% url 'logout' %}" class="inline-form">
+      {% csrf_token %}
+      <button type="submit" class="secondary btn-sm">Log out</button>
+    </form>
+  </nav>
+  {% endif %}
+
+  <main>
+    {% if messages %}
+      {% for message in messages %}
+        <article class="flash">{{ message }}</article>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{% extends "core/base.html" %}
+{% block title %}{% if object %}Edit project{% else %}New project{% endif %}{% endblock %}
+
+{% block content %}
+<h1>{% if object %}Edit {{ object.name }}{% else %}New project{% endif %}</h1>
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <div style="display:flex; gap:.5rem; align-items:center;">
+    <button type="submit">Save</button>
+    <a href="{% if object %}{% url 'project_detail' object.pk %}{% else %}{% url 'project_list' %}{% endif %}"
+       class="muted">Cancel</a>
+  </div>
+</form>
+
+{% if not object %}
+<p class="muted"><small>Create it first, then allocate parts to it. Allocating
+takes them out of your available pool — it doesn't change what you own until
+you tear the project down.</small></p>
+{% endif %}
+{% endblock %}

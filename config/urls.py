@@ -1,10 +1,9 @@
 from django.contrib import admin
-from django.urls import path
-from django.views.generic import RedirectView
+from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # Nothing lives at the root yet, and a 404 there looks like the site is
-    # broken. Send people to the app instead.
-    path("", RedirectView.as_view(pattern_name="admin:index", permanent=False)),
+    # Django's built-in login/logout views, so we don't hand-roll auth.
+    path("accounts/", include("django.contrib.auth.urls")),
+    path("", include("core.urls")),
 ]

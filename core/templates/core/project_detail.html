@@ -1,0 +1,105 @@
+{% extends "core/base.html" %}
+{% block title %}{{ project.name }}{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>{{ project.name }}</h1>
+  <p>
+    {% if project.is_active %}
+      Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}.
+    {% else %}
+      Torn down {{ project.archived_at|date:"j M Y" }}.
+      {{ summary.returned|default:0 }} returned,
+      {{ summary.soldered|default:0 }} soldered in,
+      {{ summary.broken|default:0 }} broken.
+    {% endif %}
+  </p>
+</hgroup>
+
+{% if project.description %}<p>{{ project.description }}</p>{% endif %}
+
+<div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+  {% if project.is_active and lines %}
+    <a href="{% url 'project_teardown' project.pk %}" role="button">Tear down</a>
+  {% endif %}
+  <a href="{% url 'project_update' project.pk %}" role="button" class="secondary">Edit</a>
+  <a href="{% url 'project_list' %}" role="button" class="secondary outline">All projects</a>
+</div>
+
+<h2>Parts list</h2>
+{% if lines %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col" class="num">Allocated</th>
+      <th scope="col" class="num">Held</th>
+      <th scope="col" class="num">Returned</th>
+      <th scope="col" class="num">Soldered</th>
+      <th scope="col" class="num">Broken</th>
+      <th scope="col"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in lines %}
+    <tr>
+      <th scope="row">
+        {{ line.part.name }}
+        {% if line.part.value %}<span class="muted">{{ line.part.value }}</span>{% endif %}
+        {% if line.note %}<br><small class="muted">{{ line.note }}</small>{% endif %}
+      </th>
+      <td class="num">{{ line.qty_allocated }}</td>
+      <td class="num"><strong>{{ line.remaining }}</strong></td>
+      <td class="num muted">{{ line.qty_returned }}</td>
+      <td class="num muted">{{ line.qty_soldered }}</td>
+      <td class="num muted">{{ line.qty_broken }}</td>
+      <td style="white-space:nowrap">
+        {% if project.is_active %}
+          {% if line.remaining %}
+            <form method="post" action="{% url 'line_return' project.pk line.pk %}"
+                  class="inline-form">
+              {% csrf_token %}
+              <input type="number" name="qty" min="1" max="{{ line.remaining }}"
+                     value="1" aria-label="How many to return">
+              <button type="submit" class="secondary btn-sm">Return</button>
+            </form>
+          {% endif %}
+          {% if not line.accounted %}
+            <form method="post" action="{% url 'line_remove' project.pk line.pk %}"
+                  class="inline-form">
+              {% csrf_token %}
+              <button type="submit" class="secondary outline btn-sm">Remove</button>
+            </form>
+          {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+
+<p class="muted"><small><strong>Return</strong> hands parts straight back to the
+shelf mid-build. <strong>Remove</strong> un-allocates a line you never actually
+pulled. Soldered and broken are decided at teardown.</small></p>
+{% else %}
+  <p class="muted">Nothing allocated yet.</p>
+{% endif %}
+
+{% if project.is_active %}
+<h2>Add a part</h2>
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="grid">
+    <label>{{ form.part.label }}{{ form.part }}{{ form.part.errors }}</label>
+    <label>{{ form.qty_allocated.label }}{{ form.qty_allocated }}{{ form.qty_allocated.errors }}</label>
+    <label>{{ form.note.label }}{{ form.note }}</label>
+  </div>
+  <button type="submit">Allocate</button>
+</form>
+<p class="muted"><small>Allocating takes parts out of the available pool without
+changing what you own. Adding a part that's already listed tops up its line.</small></p>
+{% endif %}
+{% endblock %}

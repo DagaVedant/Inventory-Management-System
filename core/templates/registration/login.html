@@ -1,0 +1,21 @@
+{% extends "core/base.html" %}
+{% block title %}Log in{% endblock %}
+
+{% block content %}
+<div style="max-width:22rem; margin:3rem auto;">
+  <hgroup>
+    <h1>Inventory</h1>
+    <p>Parts don't get used up. They get held by a project until you tear it down.</p>
+  </hgroup>
+
+  {% if form.errors %}
+    <article>That username and password don't match.</article>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Log in</button>
+  </form>
+</div>
+{% endblock %}

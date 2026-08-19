@@ -134,7 +134,7 @@ class TeardownTests(BaseCase):
         self.line = ProjectPart.objects.create(
             project=self.proj, part=self.p, qty_allocated=4
         )
-        self.url = reverse("admin:core_project_teardown", args=[self.proj.pk])
+        self.url = reverse("project_teardown", args=[self.proj.pk])
 
     def post(self, rows):
         data = {
@@ -194,7 +194,7 @@ class TeardownTests(BaseCase):
 
     def test_empty_project_has_nothing_to_tear_down(self):
         empty = self.project("Nothing here")
-        url = reverse("admin:core_project_teardown", args=[empty.pk])
+        url = reverse("project_teardown", args=[empty.pk])
         self.assertEqual(self.client.get(url).status_code, 302)
 
     def test_a_failed_teardown_changes_nothing_at_all(self):
@@ -222,7 +222,7 @@ class ScopingTests(TestCase):
 
         client = Client()
         client.force_login(bob)
-        url = reverse("admin:core_project_teardown", args=[proj.pk])
+        url = reverse("project_teardown", args=[proj.pk])
         self.assertIn(client.get(url).status_code, (302, 403, 404))
 
 
@@ -244,3 +244,221 @@ class AdminSmokeTests(BaseCase):
         ]:
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 200)
+
+
+class ViewTests(BaseCase):
+    """The custom UI, as opposed to the admin."""
+
+    def test_everything_requires_login(self):
+        anon = Client()
+        p = self.part()
+        proj = self.project()
+        for name, args in [
+            ("part_list", []),
+            ("part_create", []),
+            ("part_update", [p.pk]),
+            ("part_delete", [p.pk]),
+            ("project_list", []),
+            ("project_create", []),
+            ("project_detail", [proj.pk]),
+            ("project_teardown", [proj.pk]),
+        ]:
+            with self.subTest(name=name):
+                response = anon.get(reverse(name, args=args))
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("/accounts/login/", response["Location"])
+
+    def test_part_list_shows_availability(self):
+        p = self.part(qty=10)
+        ProjectPart.objects.create(project=self.project(), part=p, qty_allocated=4)
+        response = self.client.get(reverse("part_list"))
+        self.assertContains(response, "10k resistor")
+        self.assertEqual(response.context["parts"][0].held, 4)
+        self.assertEqual(response.context["parts"][0].available, 6)
+
+    def test_part_search_matches_tags_and_value(self):
+        self.part("DHT22", qty=2, tags="sensor, temperature")
+        self.part("Resistor", qty=99, value="10k")
+        url = reverse("part_list")
+        self.assertContains(self.client.get(url, {"q": "temperature"}), "DHT22")
+        self.assertNotContains(self.client.get(url, {"q": "temperature"}), "Resistor")
+        self.assertContains(self.client.get(url, {"q": "10k"}), "Resistor")
+
+    def test_part_list_only_shows_your_own_parts(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        Part.objects.create(user=stranger, name="Not yours", qty_owned=1)
+        self.part("Mine")
+        response = self.client.get(reverse("part_list"))
+        self.assertContains(response, "Mine")
+        self.assertNotContains(response, "Not yours")
+
+    def test_save_and_add_another_returns_to_an_empty_form(self):
+        response = self.client.post(
+            reverse("part_create"),
+            {
+                "name": "DHT22", "qty_owned": 3, "value": "", "package": "",
+                "pin_count": "", "voltage": "", "tags": "", "notes": "",
+                "_addanother": "1",
+            },
+        )
+        self.assertRedirects(response, reverse("part_create"))
+        self.assertTrue(Part.objects.filter(name="DHT22").exists())
+
+    def test_created_part_belongs_to_you(self):
+        self.client.post(
+            reverse("part_create"),
+            {
+                "name": "DHT22", "qty_owned": 3, "value": "", "package": "",
+                "pin_count": "", "voltage": "", "tags": "", "notes": "",
+            },
+        )
+        self.assertEqual(Part.objects.get(name="DHT22").user, self.user)
+
+    def test_cannot_delete_a_part_a_project_names(self):
+        p = self.part()
+        ProjectPart.objects.create(project=self.project(), part=p, qty_allocated=1)
+        self.client.post(reverse("part_delete", args=[p.pk]))
+        self.assertTrue(Part.objects.filter(pk=p.pk).exists())
+
+    def test_unused_part_can_be_deleted(self):
+        p = self.part()
+        self.client.post(reverse("part_delete", args=[p.pk]))
+        self.assertFalse(Part.objects.filter(pk=p.pk).exists())
+
+
+class AllocationViewTests(BaseCase):
+    def setUp(self):
+        super().setUp()
+        self.p = self.part(qty=10)
+        self.proj = self.project()
+        self.url = reverse("project_detail", args=[self.proj.pk])
+
+    def test_allocating_reduces_available_but_not_owned(self):
+        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 4, "note": ""})
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.qty_owned, 10)
+        self.assertEqual(self.p.compute_available(), 6)
+
+    def test_cannot_allocate_more_than_available(self):
+        response = self.client.post(
+            self.url, {"part": self.p.pk, "qty_allocated": 11, "note": ""}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "available")
+        self.assertEqual(self.proj.lines.count(), 0)
+
+    def test_allocating_the_same_part_twice_tops_up_the_line(self):
+        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 2, "note": ""})
+        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 3, "note": ""})
+        self.assertEqual(self.proj.lines.count(), 1)
+        self.assertEqual(self.proj.lines.first().qty_allocated, 5)
+
+    def test_topping_up_still_respects_availability(self):
+        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 8, "note": ""})
+        response = self.client.post(
+            self.url, {"part": self.p.pk, "qty_allocated": 5, "note": ""}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.proj.lines.first().qty_allocated, 8)
+
+    def test_returning_early_frees_parts_without_teardown(self):
+        line = ProjectPart.objects.create(
+            project=self.proj, part=self.p, qty_allocated=4
+        )
+        self.client.post(
+            reverse("line_return", args=[self.proj.pk, line.pk]), {"qty": 3}
+        )
+        line.refresh_from_db()
+        self.assertEqual(line.qty_returned, 3)
+        self.assertEqual(self.p.compute_available(), 9)
+
+    def test_cannot_return_more_than_is_held(self):
+        line = ProjectPart.objects.create(
+            project=self.proj, part=self.p, qty_allocated=4
+        )
+        self.client.post(
+            reverse("line_return", args=[self.proj.pk, line.pk]), {"qty": 99}
+        )
+        line.refresh_from_db()
+        self.assertEqual(line.qty_returned, 0)
+
+    def test_removing_an_untouched_line_un_allocates_it(self):
+        line = ProjectPart.objects.create(
+            project=self.proj, part=self.p, qty_allocated=4
+        )
+        self.client.post(reverse("line_remove", args=[self.proj.pk, line.pk]))
+        self.assertEqual(self.proj.lines.count(), 0)
+        self.assertEqual(self.p.compute_available(), 10)
+
+    def test_cannot_remove_a_line_with_history(self):
+        line = ProjectPart.objects.create(
+            project=self.proj, part=self.p, qty_allocated=4, qty_returned=1
+        )
+        self.client.post(reverse("line_remove", args=[self.proj.pk, line.pk]))
+        self.assertEqual(self.proj.lines.count(), 1)
+
+    def test_cannot_allocate_to_an_archived_project(self):
+        self.proj.status = ProjectStatus.ARCHIVED
+        self.proj.save()
+        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 1, "note": ""})
+        self.assertEqual(self.proj.lines.count(), 0)
+
+    def test_part_picker_only_offers_your_own_parts(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Not yours", qty_owned=5)
+        response = self.client.post(
+            self.url, {"part": theirs.pk, "qty_allocated": 1, "note": ""}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.proj.lines.count(), 0)
+
+
+class TeardownViewTests(BaseCase):
+    def setUp(self):
+        super().setUp()
+        self.p = self.part(qty=10)
+        self.proj = self.project()
+        self.line = ProjectPart.objects.create(
+            project=self.proj, part=self.p, qty_allocated=4
+        )
+        self.url = reverse("project_teardown", args=[self.proj.pk])
+
+    def post(self, rows):
+        data = {
+            "form-TOTAL_FORMS": str(len(rows)),
+            "form-INITIAL_FORMS": str(len(rows)),
+            "form-MIN_NUM_FORMS": "0",
+            "form-MAX_NUM_FORMS": "1000",
+        }
+        for i, (line, returned, soldered, broken) in enumerate(rows):
+            data[f"form-{i}-line_id"] = str(line.pk)
+            data[f"form-{i}-qty_returned"] = str(returned)
+            data[f"form-{i}-qty_soldered"] = str(soldered)
+            data[f"form-{i}-qty_broken"] = str(broken)
+        return self.client.post(self.url, data)
+
+    def test_page_renders_with_defaults(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "10k resistor")
+        self.assertContains(response, 'value="4"')
+
+    def test_teardown_archives_and_settles_the_numbers(self):
+        self.post([(self.line, 1, 2, 1)])
+        self.proj.refresh_from_db()
+        self.p.refresh_from_db()
+        self.assertEqual(self.proj.status, ProjectStatus.ARCHIVED)
+        self.assertEqual(self.p.qty_owned, 7)
+        self.assertEqual(self.p.compute_available(), 7)
+
+    def test_mismatched_line_is_rejected_and_nothing_changes(self):
+        response = self.post([(self.line, 1, 1, 0)])
+        self.assertContains(response, "Account for exactly 4")
+        self.proj.refresh_from_db()
+        self.assertEqual(self.proj.status, ProjectStatus.ACTIVE)
+
+    def test_another_users_project_is_not_reachable(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Project.objects.create(user=stranger, name="Theirs")
+        response = self.client.get(reverse("project_teardown", args=[theirs.pk]))
+        self.assertEqual(response.status_code, 404)
