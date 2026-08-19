@@ -169,8 +169,13 @@ ProjectPart                    ← this is the BOM
 
 ## Build steps
 
-- [ ] **1 · Scaffold and deploy empty** — 3h
-      Deploy before there's anything to deploy. Deployment problems are unbounded in time; solving them at hour 4 costs an afternoon, at hour 30 it costs the project.
+- [x] **1 · Scaffold and deploy empty** — 3h
+      Live at web-production-d6073.up.railway.app · Postgres linked · admin reachable.
+      Railway notes: dashboard settings override the Procfile. Start command must be
+      cleared or match. Migrations run via **Settings → Deploy → Pre-Deploy Command**,
+      not the Procfile `release:` line. collectstatic runs via **Settings → Build →
+      Custom Build Command**. `getpass` prompts don't work over `railway ssh` from
+      PowerShell — use `--noinput` with `DJANGO_SUPERUSER_*` env vars, or the shell.
 
 - [ ] **2 · Four models, makemigrations, migrate** — 1.5h
 
