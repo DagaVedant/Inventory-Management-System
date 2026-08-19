@@ -177,10 +177,11 @@ ProjectPart                    ← this is the BOM
       Custom Build Command**. `getpass` prompts don't work over `railway ssh` from
       PowerShell — use `--noinput` with `DJANGO_SUPERUSER_*` env vars, or the shell.
 
-- [ ] **2 · Four models, makemigrations, migrate** — 1.5h
+- [x] **2 · Four models, makemigrations, migrate** — 1.5h
+      `Part`, `Project`, `ProjectPart` + `ProjectStatus`. `held`/`available` derived, never stored. Three DB constraints on `ProjectPart`. `Part.clean()` blocks `qty_owned` dropping below held. `Part.objects.with_availability()` annotates both in one query.
 
-- [ ] **3 · Register all four in admin** — 0.5h
-      **A working inventory app now exists.** Full CRUD, logins, no templates written. Everything after this is replacing admin screens with better ones — which means you can never end up with nothing.
+- [x] **3 · Register all four in admin** — 0.5h
+      **A working inventory app now exists.** Rows scoped to the logged-in user, ownership stamped on create, held/available as sortable columns, allocation lines edited inline on the project page with autocomplete on part.
 
 - [ ] **4 · Enter your real bin through the admin** — not coding hours
       Do this early. If your parts are still fake at hour 30, the app isn't real and you'll know it.
