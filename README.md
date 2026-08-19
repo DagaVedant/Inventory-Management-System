@@ -114,7 +114,7 @@ and rebuilds that user's data.
 python manage.py test core
 ```
 
-Forty-three of them, mostly on the arithmetic. The invariant that soldered and
+Sixty of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
