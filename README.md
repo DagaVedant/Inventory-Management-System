@@ -119,13 +119,45 @@ broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
 
+## Accounts
+
+Anyone with the URL can sign up at `/accounts/signup/`. To close that, set
+`SIGNUP_CODE` to any string in the environment — the signup form then asks for
+it and rejects anything else. No deploy needed; it's read at request time.
+
+Password reset needs a mail server. Until one is configured the reset page says
+so plainly instead of showing a "check your inbox" message for an email that
+will never arrive, and the login page doesn't offer the link at all. Resetting
+a forgotten password meanwhile is a shell command on the server:
+
+```python
+python manage.py shell -c "from django.contrib.auth import get_user_model; U=get_user_model(); u=U.objects.get(username='...'); u.set_password('...'); u.save()"
+```
+
 ## Deployment
 
 Railway, Postgres, WhiteNoise for static files, gunicorn.
 
-Settings read from the environment: `SECRET_KEY`, `DEBUG`, `DATABASE_URL`
-(injected by Railway), and `RAILWAY_PUBLIC_DOMAIN` for `ALLOWED_HOSTS` and
-`CSRF_TRUSTED_ORIGINS`.
+| Variable | |
+|---|---|
+| `SECRET_KEY` | required |
+| `DEBUG` | `False` in production |
+| `DATABASE_URL` | injected by Railway when you link the Postgres service |
+| `RAILWAY_PUBLIC_DOMAIN` | injected once you generate a domain; drives `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` |
+| `SIGNUP_CODE` | optional; set it to close open signup |
+| `EMAIL_HOST` | optional; setting it switches mail from console to SMTP |
+| `EMAIL_PORT` `EMAIL_HOST_USER` `EMAIL_HOST_PASSWORD` `EMAIL_USE_TLS` | SMTP details |
+| `DEFAULT_FROM_EMAIL` | the From address on reset mail |
+
+With `DEBUG=False` the app forces HTTPS, marks session and CSRF cookies secure,
+and sends a one-hour HSTS header. `SECURE_PROXY_SSL_HEADER` is set alongside
+the HTTPS redirect and is not optional — Railway terminates TLS at its edge and
+forwards over plain HTTP, so without that header Django would think every
+request was insecure and redirect forever.
+
+`python manage.py check --deploy` should report only the mail backend error
+until you configure SMTP. Two HSTS warnings are silenced deliberately; the
+reasoning is in `settings.py` next to them.
 
 Two things that are easy to get wrong on Railway specifically:
 

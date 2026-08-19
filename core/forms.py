@@ -1,7 +1,39 @@
 from django import forms
+from django.conf import settings
+from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 
 from .models import Part, ProjectPart
+
+
+class SignupForm(UserCreationForm):
+    """Account creation, optionally behind an invite code.
+
+    With SIGNUP_CODE unset the code field isn't rendered at all and anyone with
+    the URL can sign up. Set it in the environment and signup closes without a
+    deploy.
+    """
+
+    signup_code = forms.CharField(
+        required=False,
+        label="Invite code",
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+
+    class Meta(UserCreationForm.Meta):
+        fields = ("username",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not settings.SIGNUP_CODE:
+            del self.fields["signup_code"]
+
+    def clean_signup_code(self):
+        expected = settings.SIGNUP_CODE
+        given = (self.cleaned_data.get("signup_code") or "").strip()
+        if expected and given != expected:
+            raise forms.ValidationError("That invite code isn't right.")
+        return given
 
 
 class PartForm(forms.ModelForm):
@@ -52,9 +84,10 @@ class AllocationForm(forms.Form):
         widget=forms.TextInput(attrs={"placeholder": "optional note"}),
     )
 
-    def __init__(self, *args, project=None, **kwargs):
+    def __init__(self, *args, project=None, lock=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.project = project
+        self.lock = lock
         if project is not None:
             self.fields["part"].queryset = Part.objects.filter(
                 user=project.user
@@ -67,6 +100,15 @@ class AllocationForm(forms.Form):
 
         if part is None or qty is None or self.project is None:
             return cleaned
+
+        if self.lock:
+            # Take a row lock on the part before reading availability, so a
+            # concurrent allocation of the same part waits for this one to
+            # commit instead of racing it. Requires an open transaction; a
+            # no-op on SQLite, which is fine because it serializes writes
+            # anyway.
+            part = Part.objects.select_for_update().get(pk=part.pk)
+            cleaned["part"] = part
 
         line = ProjectPart.objects.filter(project=self.project, part=part).first()
         if line is None:

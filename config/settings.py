@@ -74,6 +74,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.app_flags',
             ],
         },
     },
@@ -155,15 +156,80 @@ STORAGES = {
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
+#
+# SMTP credentials come from the environment. Set EMAIL_HOST (plus user,
+# password and port) in Railway and real mail starts working with no code
+# change. Until then everything goes to the console.
+#
+# EMAIL_CONFIGURED exists so the app can *hide* password reset rather than
+# offer it and silently drop the message into a server log nobody reads. A
+# feature that looks like it worked but didn't is worse than one that isn't
+# offered.
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+_EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_CONFIGURED = bool(_EMAIL_HOST)
+
+if EMAIL_CONFIGURED:
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {
+                "host": _EMAIL_HOST,
+                "port": int(os.environ.get("EMAIL_PORT", "587")),
+                "username": os.environ.get("EMAIL_HOST_USER", ""),
+                "password": os.environ.get("EMAIL_HOST_PASSWORD", ""),
+                "use_tls": os.environ.get("EMAIL_USE_TLS", "True") == "True",
+                "timeout": 10,
+            },
+        },
+    }
+else:
+    MAILERS = {
+        "default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"},
+    }
+
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "inventory@localhost")
+
+
+# Signup
+# Leave SIGNUP_CODE unset and anyone with the URL can create an account. Set it
+# to any string in the environment and they need that string to sign up.
+SIGNUP_CODE = os.environ.get("SIGNUP_CODE", "")
 
 
 # Auth routing for the built-in login/logout views.
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "part_list"
 LOGOUT_REDIRECT_URL = "login"
+
+
+# Security
+# Everything below is production-only: forcing HTTPS locally would just break
+# runserver.
+if not DEBUG:
+    # Railway terminates TLS at its edge and forwards to the container over
+    # plain HTTP. Without this header Django believes every request is
+    # insecure, and SECURE_SSL_REDIRECT below would redirect forever.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # One hour. Long enough to be worth having, short enough that a mistake
+    # ages out the same afternoon instead of pinning browsers to HTTPS for
+    # months. Raise it once you're confident.
+    SECURE_HSTS_SECONDS = 3600
+
+    # Both of these are deliberate, and both are what `check --deploy` will
+    # nag about. Silenced below so a clean checklist run stays meaningful.
+    #
+    # includeSubDomains: we're on a *.up.railway.app subdomain we don't own the
+    # apex of. Asserting an HSTS policy for domains that aren't ours would be
+    # wrong, and on a custom domain later it would need re-deciding anyway.
+    #
+    # preload: a one-way door. Getting onto the browser preload list is easy
+    # and getting off it takes months.
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+    SILENCED_SYSTEM_CHECKS = ["security.W005", "security.W021"]

@@ -1,7 +1,9 @@
 from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count, ProtectedError, Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
@@ -9,8 +11,44 @@ from django.urls import reverse, reverse_lazy
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
-from .forms import AllocationForm, PartForm, TeardownFormSet
+from .forms import AllocationForm, PartForm, SignupForm, TeardownFormSet
 from .models import Part, Project, ProjectPart, ProjectStatus
+
+
+# ----------------------------------------------------------------- accounts
+
+
+class SignupView(CreateView):
+    form_class = SignupForm
+    template_name = "registration/signup.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect("part_list")
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Deliberately not calling super(): ModelFormMixin.form_valid() insists
+        # on a success_url or a get_absolute_url() on User, neither of which
+        # exists, and we redirect ourselves anyway.
+        self.object = form.save()
+        # Straight in rather than bouncing them to a login form they just
+        # filled the credentials for.
+        login(self.request, self.object)
+        messages.success(
+            self.request,
+            "Account created. Add your first part whenever you're ready.",
+        )
+        return redirect("part_list")
+
+
+def password_reset_unavailable(request):
+    """Stand-in for the reset flow when no mail server is configured.
+
+    Django's real view would render a 'check your inbox' page and post the
+    link to a server log nobody reads. Saying so is better than pretending.
+    """
+    return render(request, "registration/password_reset_unavailable.html", status=503)
 
 
 class OwnedMixin(LoginRequiredMixin):
@@ -162,13 +200,17 @@ def project_detail(request, pk):
             messages.error(request, "This project has been torn down.")
             return redirect("project_detail", pk=project.pk)
 
-        form = AllocationForm(request.POST, project=project)
-        if form.is_valid():
-            line = form.save()
-            messages.success(
-                request, f"Allocated {line.qty_allocated} × {line.part}."
-            )
-            return redirect("project_detail", pk=project.pk)
+        # The availability check reads stock and then writes an allocation.
+        # Without a transaction and a row lock, two submits landing together
+        # can both pass the check and between them allocate more than exists.
+        with transaction.atomic():
+            form = AllocationForm(request.POST, project=project, lock=True)
+            if form.is_valid():
+                line = form.save()
+                messages.success(
+                    request, f"Allocated {line.qty_allocated} × {line.part}."
+                )
+                return redirect("project_detail", pk=project.pk)
     else:
         form = AllocationForm(project=project)
 
@@ -212,26 +254,34 @@ def line_remove(request, pk, line_pk):
 def line_return(request, pk, line_pk):
     """Hand some parts back mid-build, without tearing the project down."""
     project = _get_project(request, pk)
-    line = get_object_or_404(ProjectPart, pk=line_pk, project=project)
 
     try:
         qty = int(request.POST.get("qty", 0))
     except (TypeError, ValueError):
         qty = 0
 
-    if not project.is_active:
-        messages.error(request, "This project has been torn down.")
-    elif qty < 1:
-        messages.error(request, "Enter how many are coming back.")
-    elif qty > line.remaining:
-        messages.error(
-            request,
-            f"{project} is only holding {line.remaining} × {line.part}.",
+    # Same read-then-write shape as allocation: lock the line so two returns
+    # can't both see the same `remaining` and hand back more than is held.
+    with transaction.atomic():
+        line = get_object_or_404(
+            ProjectPart.objects.select_for_update().select_related("part"),
+            pk=line_pk,
+            project=project,
         )
-    else:
-        line.qty_returned += qty
-        line.save(update_fields=["qty_returned"])
-        messages.success(request, f"Returned {qty} × {line.part} to the shelf.")
+
+        if not project.is_active:
+            messages.error(request, "This project has been torn down.")
+        elif qty < 1:
+            messages.error(request, "Enter how many are coming back.")
+        elif qty > line.remaining:
+            messages.error(
+                request,
+                f"{project} is only holding {line.remaining} × {line.part}.",
+            )
+        else:
+            line.qty_returned += qty
+            line.save(update_fields=["qty_returned"])
+            messages.success(request, f"Returned {qty} × {line.part} to the shelf.")
 
     return redirect("project_detail", pk=project.pk)
 
