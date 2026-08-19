@@ -186,17 +186,17 @@ ProjectPart                    ← this is the BOM
 - [ ] **4 · Enter your real bin through the admin** — not coding hours
       Do this early. If your parts are still fake at hour 30, the app isn't real and you'll know it.
 
-- [ ] **5 · Parts pages** — 10h
-      List view with `available` computed by aggregate annotation (one query, not a loop). Add form that reopens empty with the name field focused. Edit, delete (blocked if held), search.
+- [x] **5 · Parts pages** — 10h
+      List with search across name/value/package/tags/notes, availability from one annotated query, add form with save-and-add-another, edit, delete guarded by PROTECT.
 
-- [ ] **6 · Projects and allocation** — 9h
-      Project list, create, detail page (the BOM). Allocation form with a picker showing `available`. The availability check inside `transaction.atomic()`. Early returns.
+- [x] **6 · Projects and allocation** — 9h
+      Project list split active/archived, detail page is the BOM, allocation form tops up an existing line instead of failing, early returns, line removal.
 
-- [ ] **7 · Teardown formset** — 6h
-      Per-line returned / soldered / broken, `returned` pre-filled to remaining. Validate each row sums exactly. Commit everything in one transaction: write the counts, decrement `qty_owned`, archive the project. Archived read-only view.
+- [x] **7 · Teardown formset** — 6h
+      Per-line returned/soldered/broken pre-filled to remaining. Must account for exactly what's held. One transaction: writes counts, decrements qty_owned, archives. Admin links out to it rather than duplicating it.
 
 - [ ] **8 · Demo data, README, 90-second video** — 3h
-      A quarter of the score. Not optional.
+      seed_demo command and README done. **Video still to do** — that's yours.
 
 **Total: 33h. Ceiling 40h — spend the 7h buffer on steps 1 and 7**, which are the two that blow up.
 
