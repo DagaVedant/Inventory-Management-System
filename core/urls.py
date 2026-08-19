@@ -20,6 +20,11 @@ urlpatterns = [
         name="project_update",
     ),
     path(
+        "projects/<int:pk>/delete/",
+        views.ProjectDeleteView.as_view(),
+        name="project_delete",
+    ),
+    path(
         "projects/<int:pk>/teardown/",
         views.project_teardown,
         name="project_teardown",

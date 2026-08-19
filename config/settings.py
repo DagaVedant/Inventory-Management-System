@@ -118,7 +118,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Dates render in this zone; USE_TZ keeps everything stored as UTC.
+# Override with a TIME_ZONE env var if you move.
+TIME_ZONE = os.environ.get("TIME_ZONE", "America/New_York")
 
 USE_I18N = True
 

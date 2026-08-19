@@ -148,6 +148,7 @@ Railway, Postgres, WhiteNoise for static files, gunicorn.
 | `EMAIL_HOST` | optional; setting it switches mail from console to SMTP |
 | `EMAIL_PORT` `EMAIL_HOST_USER` `EMAIL_HOST_PASSWORD` `EMAIL_USE_TLS` | SMTP details |
 | `DEFAULT_FROM_EMAIL` | the From address on reset mail |
+| `TIME_ZONE` | display timezone, defaults to `America/New_York`; storage is always UTC |
 
 With `DEBUG=False` the app forces HTTPS, marks session and CSRF cookies secure,
 and sends a one-hour HSTS header. `SECURE_PROXY_SSL_HEADER` is set alongside

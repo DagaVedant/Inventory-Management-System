@@ -1,3 +1,5 @@
+from datetime import datetime, timezone as dt_timezone
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -530,6 +532,74 @@ class SignupTests(TestCase):
         response = self.client.post(self.url, self.credentials(signup_code="letmein"))
         self.assertRedirects(response, reverse("part_list"))
         self.assertTrue(User.objects.filter(username="newcomer").exists())
+
+
+class ProjectDeleteTests(BaseCase):
+    def test_deleting_an_active_project_hands_its_parts_back(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        self.assertEqual(p.compute_available(), 6)
+
+        response = self.client.post(reverse("project_delete", args=[proj.pk]))
+        self.assertRedirects(response, reverse("project_list"))
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 10)
+        self.assertEqual(p.compute_available(), 10)
+        self.assertFalse(Project.objects.filter(pk=proj.pk).exists())
+
+    def test_deleting_a_torn_down_project_leaves_quantities_alone(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        proj.tear_down([(line, 1, 2, 1)])
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 7)
+
+        self.client.post(reverse("project_delete", args=[proj.pk]))
+        p.refresh_from_db()
+        # Those three parts were written off at teardown. Deleting the record
+        # must not resurrect them.
+        self.assertEqual(p.qty_owned, 7)
+        self.assertEqual(p.compute_available(), 7)
+
+    def test_confirmation_page_says_what_will_happen(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        response = self.client.get(reverse("project_delete", args=[proj.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "straight back to the shelf")
+        self.assertContains(response, "10k resistor")
+
+    def test_cannot_delete_someone_elses_project(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Project.objects.create(user=stranger, name="Theirs")
+        response = self.client.post(reverse("project_delete", args=[theirs.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Project.objects.filter(pk=theirs.pk).exists())
+
+    def test_delete_requires_login(self):
+        proj = self.project()
+        response = Client().get(reverse("project_delete", args=[proj.pk]))
+        self.assertEqual(response.status_code, 302)
+
+
+class PresentationTests(BaseCase):
+    def test_dates_render_in_the_configured_zone_not_utc(self):
+        """A project created late evening Eastern must not show tomorrow."""
+        proj = self.project()
+        Project.objects.filter(pk=proj.pk).update(
+            created_at=datetime(2026, 8, 20, 1, 30, tzinfo=dt_timezone.utc)
+        )
+        response = self.client.get(reverse("project_list"))
+        # 01:30 UTC on the 20th is 21:30 on the 19th in New York.
+        self.assertContains(response, "19 Aug 2026")
+        self.assertNotContains(response, "20 Aug 2026")
+
+    def test_pages_declare_a_favicon(self):
+        response = self.client.get(reverse("part_list"))
+        self.assertContains(response, "favicon.svg")
 
 
 class PasswordResetTests(TestCase):

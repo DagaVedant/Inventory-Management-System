@@ -1,0 +1,62 @@
+{% extends "core/base.html" %}
+{% block title %}Delete {{ object.name }}{% endblock %}
+
+{% block content %}
+<h1>Delete {{ object.name }}?</h1>
+
+{% if object.is_active %}
+  {% if total_held %}
+    <article>
+      This project is holding <strong>{{ total_held }}</strong>
+      part{{ total_held|pluralize }}. Deleting it hands every one of them
+      straight back to the shelf, with nothing marked soldered or broken.
+    </article>
+    <p class="muted">If you actually built this and want the losses recorded,
+       <a href="{% url 'project_teardown' object.pk %}">tear it down instead</a>.
+       Delete is for projects that never really happened.</p>
+  {% else %}
+    <p class="muted">Nothing allocated, so nothing changes in your inventory.</p>
+  {% endif %}
+{% else %}
+  <article>
+    This project was torn down. Deleting it removes the record of what it was
+    built from and what it cost you —
+    {{ summary.returned|default:0 }} returned,
+    {{ summary.soldered|default:0 }} soldered in,
+    {{ summary.broken|default:0 }} broken.
+  </article>
+  <p class="muted">Your part quantities won't change. Those parts were already
+     written off when you tore it down; only the history goes.</p>
+{% endif %}
+
+{% if lines %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col" class="num">Allocated</th>
+      <th scope="col" class="num">Still held</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in lines %}
+    <tr>
+      <th scope="row">{{ line.part }}</th>
+      <td class="num">{{ line.qty_allocated }}</td>
+      <td class="num">{{ line.remaining }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <div style="display:flex; gap:.5rem; align-items:center;">
+    <button type="submit" class="contrast">Delete permanently</button>
+    <a href="{% url 'project_detail' object.pk %}" class="muted">Cancel</a>
+  </div>
+</form>
+{% endblock %}
