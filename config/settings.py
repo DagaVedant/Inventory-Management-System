@@ -130,12 +130,25 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# In development there is no collectstatic output to serve from, so let
+# WhiteNoise fall back to the staticfiles finders instead of warning.
+WHITENOISE_AUTOREFRESH = DEBUG
+WHITENOISE_USE_FINDERS = DEBUG
+
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        # The manifest backend maps every file to a hashed name for cache
+        # busting, but it refuses to serve anything unless collectstatic has
+        # built that manifest first. That is right for production and wrong
+        # for local development and tests, where no build step has run.
+        "BACKEND": (
+            "whitenoise.storage.CompressedStaticFilesStorage"
+            if DEBUG
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
     },
 }
 
