@@ -17,5 +17,12 @@
     {{ form.as_p }}
     <button type="submit">Log in</button>
   </form>
+
+  <p class="muted"><small>
+    No account? <a href="{% url 'signup' %}">Create one</a>.
+    {% if email_configured %}
+      &middot; <a href="{% url 'password_reset' %}">Forgot your password?</a>
+    {% endif %}
+  </small></p>
 </div>
 {% endblock %}

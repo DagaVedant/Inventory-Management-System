@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.test import Client, TestCase
-from django.urls import reverse
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse, reverse_lazy
 
 from .models import Part, Project, ProjectPart, ProjectStatus
 
@@ -462,3 +462,84 @@ class TeardownViewTests(BaseCase):
         theirs = Project.objects.create(user=stranger, name="Theirs")
         response = self.client.get(reverse("project_teardown", args=[theirs.pk]))
         self.assertEqual(response.status_code, 404)
+
+
+class SignupTests(TestCase):
+    url = reverse_lazy("signup")
+
+    def credentials(self, **extra):
+        data = {
+            "username": "newcomer",
+            "password1": "a-long-enough-passphrase",
+            "password2": "a-long-enough-passphrase",
+        }
+        data.update(extra)
+        return data
+
+    def test_page_renders(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Create an account")
+
+    def test_login_page_offers_signup(self):
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, reverse("signup"))
+
+    def test_signing_up_creates_the_account_and_logs_you_straight_in(self):
+        response = self.client.post(self.url, self.credentials())
+        self.assertRedirects(response, reverse("part_list"))
+        self.assertTrue(User.objects.filter(username="newcomer").exists())
+        self.assertEqual(int(self.client.session["_auth_user_id"]),
+                         User.objects.get(username="newcomer").pk)
+
+    def test_a_new_account_starts_empty(self):
+        owner = User.objects.create_user("owner", "o@e.com", "pw12345!")
+        Part.objects.create(user=owner, name="Someone else's DHT22", qty_owned=3)
+        self.client.post(self.url, self.credentials())
+        response = self.client.get(reverse("part_list"))
+        self.assertEqual(len(response.context["parts"]), 0)
+        self.assertNotContains(response, "Someone else")
+
+    def test_mismatched_passwords_are_rejected(self):
+        response = self.client.post(
+            self.url, self.credentials(password2="something-else-entirely")
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="newcomer").exists())
+
+    def test_already_logged_in_users_are_sent_to_the_app(self):
+        user = User.objects.create_user("owner", "o@e.com", "pw12345!")
+        self.client.force_login(user)
+        self.assertRedirects(self.client.get(self.url), reverse("part_list"))
+
+    def test_no_code_field_when_signup_is_open(self):
+        self.assertNotContains(self.client.get(self.url), "Invite code")
+
+    @override_settings(SIGNUP_CODE="letmein")
+    def test_invite_code_is_required_when_set(self):
+        self.assertContains(self.client.get(self.url), "Invite code")
+
+        response = self.client.post(self.url, self.credentials())
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="newcomer").exists())
+
+        response = self.client.post(self.url, self.credentials(signup_code="wrong"))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="newcomer").exists())
+
+        response = self.client.post(self.url, self.credentials(signup_code="letmein"))
+        self.assertRedirects(response, reverse("part_list"))
+        self.assertTrue(User.objects.filter(username="newcomer").exists())
+
+
+class PasswordResetTests(TestCase):
+    """With no mail server configured, say so instead of pretending."""
+
+    def test_reset_page_admits_it_cannot_send_mail(self):
+        response = self.client.get(reverse("password_reset"))
+        self.assertEqual(response.status_code, 503)
+        self.assertContains(response, "isn't set up", status_code=503)
+
+    def test_login_page_does_not_offer_a_reset_link(self):
+        response = self.client.get(reverse("login"))
+        self.assertNotContains(response, "Forgot your password")
