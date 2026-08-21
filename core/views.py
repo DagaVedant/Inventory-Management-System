@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -42,13 +44,27 @@ class SignupView(CreateView):
         return redirect("part_list")
 
 
-def password_reset_unavailable(request):
-    """Stand-in for the reset flow when no mail server is configured.
+class GuardedPasswordResetView(auth_views.PasswordResetView):
+    """Django's reset view, but honest when there's nowhere to send mail.
 
-    Django's real view would render a 'check your inbox' page and post the
-    link to a server log nobody reads. Saying so is better than pretending.
+    Without a mail server the stock view renders "check your inbox" and posts
+    the link to a server log nobody reads. The check happens per request rather
+    than when URLs are loaded, so setting EMAIL_HOST takes effect on the next
+    request instead of needing a redeploy.
     """
-    return render(request, "registration/password_reset_unavailable.html", status=503)
+
+    email_template_name = "registration/password_reset_email.txt"
+    subject_template_name = "registration/password_reset_subject.txt"
+    success_url = reverse_lazy("password_reset_done")
+
+    def dispatch(self, request, *args, **kwargs):
+        if not settings.EMAIL_CONFIGURED:
+            return render(
+                request,
+                "registration/password_reset_unavailable.html",
+                status=503,
+            )
+        return super().dispatch(request, *args, **kwargs)
 
 
 class OwnedMixin(LoginRequiredMixin):

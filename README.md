@@ -114,7 +114,7 @@ and rebuilds that user's data.
 python manage.py test core
 ```
 
-Sixty of them, mostly on the arithmetic. The invariant that soldered and
+Sixty-five of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
@@ -125,10 +125,39 @@ Anyone with the URL can sign up at `/accounts/signup/`. To close that, set
 `SIGNUP_CODE` to any string in the environment — the signup form then asks for
 it and rejects anything else. No deploy needed; it's read at request time.
 
-Password reset needs a mail server. Until one is configured the reset page says
-so plainly instead of showing a "check your inbox" message for an email that
-will never arrive, and the login page doesn't offer the link at all. Resetting
-a forgotten password meanwhile is a shell command on the server:
+### Password reset
+
+Reset needs a mail server. Until one is configured the reset page says so
+plainly instead of showing "check your inbox" for an email that will never
+arrive, and the login page doesn't offer the link at all. That check runs per
+request, so setting `EMAIL_HOST` turns the whole flow on without a redeploy.
+
+To enable it, set these in the environment:
+
+```
+EMAIL_HOST=smtp.your-provider.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=your-username
+EMAIL_HOST_PASSWORD=your-app-password
+EMAIL_USE_TLS=True
+DEFAULT_FROM_EMAIL=Inventory <you@yourdomain.com>
+```
+
+Then check it actually works before trusting it with a reset link:
+
+```bash
+python manage.py test_email you@example.com
+```
+
+That prints which backend is live and the host it's talking to, sends a real
+message, and shows the actual exception if it fails rather than failing
+silently.
+
+Two things that catch people out: port 587 is for TLS and 465 is for SSL, and
+most providers (Gmail included) want an app-specific password rather than your
+account password.
+
+**Without a mail server**, resetting a forgotten password is a shell command:
 
 ```python
 python manage.py shell -c "from django.contrib.auth import get_user_model; U=get_user_model(); u=U.objects.get(username='...'); u.set_password('...'); u.save()"
@@ -178,10 +207,14 @@ Django 6.1, Postgres in production and SQLite locally, Pico.css. No JavaScript.
 ```
 core/
   models.py      Part, Project, ProjectPart - the quantity rules live here
-  views.py       parts and projects CRUD, allocation, teardown
-  forms.py       part form, allocation form, teardown formset
+  views.py       accounts, parts and projects CRUD, allocation, teardown
+  forms.py       signup, part form, allocation form, teardown formset
   admin.py       a power-user view over the same data
   tests.py
-  management/commands/seed_demo.py
+  templates/core/   app pages
+  static/           favicon
+  management/commands/   seed_demo, test_email
+templates/registration/  login, signup, password reset
+                         (project level so they beat the admin's copies)
 config/          settings, urls, wsgi
 ```
