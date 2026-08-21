@@ -1,9 +1,35 @@
+import re
+import unicodedata
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import F, Q, Sum, Value
 from django.db.models.functions import Coalesce, Greatest
 from django.utils import timezone
+
+
+def match_key(name, value=""):
+    """A loose key for spotting the same component written two ways.
+
+    "10k", "10 k", "10K" and "10kΩ" are one resistor as far as a human is
+    concerned, and four separate rows as far as an exact match is concerned.
+
+    Full stops are deliberately kept: stripping them would fold 4.7k into 47k
+    and invent a duplicate that isn't one, which is worse than missing a real
+    one.
+    """
+
+    def clean(text):
+        text = unicodedata.normalize("NFKD", text or "").casefold()
+        text = text.replace("μ", "u").replace("µ", "u")  # micro signs
+        text = text.replace("ω", "")  # ohm sign, already casefolded
+        # Word boundary on purpose: folds "10 kohms" down to "10k" without
+        # mangling a part legitimately named something like "Ohmite".
+        text = re.sub(r"ohms?\b", "", text)
+        return re.sub(r"[\s\-_,/]+", "", text)
+
+    return clean(name), clean(value)
 
 
 class ProjectStatus(models.TextChoices):
@@ -201,6 +227,82 @@ class Part(models.Model):
     def set_stock(self, new_total, reason=MovementReason.CORRECTION, note=""):
         """Set an absolute quantity. Recounts work this way; deliveries don't."""
         return self.adjust_stock(new_total - self.qty_owned, reason, note=note)
+
+    def match_key(self):
+        return match_key(self.name, self.value)
+
+    @transaction.atomic
+    def merge_into(self, target):
+        """Fold this part into another and delete it.
+
+        Everything moves: allocation lines, quantities, want list and history.
+        Where both parts appear in the same project their lines are combined,
+        because the unique constraint means one project cannot hold two lines
+        for what is now one part.
+
+        The history is carried over rather than discarded, and every
+        balance_after on the target is recomputed in date order afterwards.
+        Two interleaved running balances would otherwise be nonsense, and the
+        ledger has to keep reconciling with qty_owned.
+        """
+        if target.pk == self.pk:
+            raise ValidationError("A part can't be merged into itself.")
+        if target.user_id != self.user_id:
+            raise ValidationError("Both parts must belong to the same person.")
+
+        for line in self.allocations.all():
+            twin = ProjectPart.objects.filter(
+                project_id=line.project_id, part=target
+            ).first()
+            if twin is None:
+                line.part = target
+                line.save(update_fields=["part"])
+                continue
+
+            twin.qty_wanted += line.qty_wanted
+            twin.qty_allocated += line.qty_allocated
+            twin.qty_returned += line.qty_returned
+            twin.qty_soldered += line.qty_soldered
+            twin.qty_broken += line.qty_broken
+            if line.teardown_returned is not None:
+                twin.teardown_returned = (
+                    twin.teardown_returned or 0
+                ) + line.teardown_returned
+            twin.save()
+            line.delete()
+
+        moved_stock = self.qty_owned
+        moved_history = self.movements.count()
+        name_before = str(self)
+
+        Part.objects.filter(pk=target.pk).update(
+            qty_owned=F("qty_owned") + moved_stock,
+            qty_to_buy=F("qty_to_buy") + self.qty_to_buy,
+        )
+        self.movements.update(part=target)
+
+        # Delete before recomputing, so the source's own row can't be counted.
+        Part.objects.filter(pk=self.pk).delete()
+        target.refresh_from_db()
+
+        running = 0
+        for movement in target.movements.order_by("created_at", "pk"):
+            running += movement.delta
+            if movement.balance_after != running:
+                movement.balance_after = running
+                movement.save(update_fields=["balance_after"])
+
+        StockMovement.objects.create(
+            part=target,
+            delta=0,
+            balance_after=target.qty_owned,
+            reason=MovementReason.MERGE,
+            note=(
+                f"Merged in {name_before}: {moved_stock} unit(s) and "
+                f"{moved_history} history line(s)."
+            ),
+        )
+        return target
 
     def tag_list(self):
         return [t.strip() for t in self.tags.split(",") if t.strip()]

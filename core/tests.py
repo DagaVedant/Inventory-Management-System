@@ -15,6 +15,7 @@ from .models import (
     Project,
     ProjectPart,
     ProjectStatus,
+    match_key,
 )
 
 User = get_user_model()
@@ -768,8 +769,30 @@ class BulkImportTests(BaseCase):
         self.part("DHT22", qty=1)
         response = self.client.post(self.url, {"text": "DHT22, 4"})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "already in your parts list")
+        self.assertContains(response, "you already")
         self.assertEqual(Part.objects.filter(name="DHT22").count(), 1)
+
+    def test_a_near_duplicate_is_caught_too(self):
+        """Exact matching let 10 K in beside 10k and split the count."""
+        self.part("Resistor", qty=100, value="10k")
+        response = self.client.post(self.url, {"text": "resistor, 50, 10 K"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "you already")
+        self.assertEqual(Part.objects.filter(user=self.user).count(), 1)
+
+    def test_genuinely_different_values_still_import(self):
+        self.part("Resistor", qty=100, value="4.7k")
+        response = self.client.post(self.url, {"text": "Resistor, 50, 47k"})
+        self.assertRedirects(response, reverse("part_list"))
+        self.assertEqual(Part.objects.filter(user=self.user).count(), 2)
+
+    def test_near_duplicates_within_one_paste_are_caught(self):
+        response = self.client.post(
+            self.url, {"text": "Resistor, 10, 10k\nresistor, 5, 10 K"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Same part as line 1")
+        self.assertEqual(Part.objects.filter(user=self.user).count(), 0)
 
     def test_someone_elses_part_of_the_same_name_is_not_a_clash(self):
         stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
@@ -859,6 +882,172 @@ class AddStockTests(BaseCase):
         self.assertEqual(response.status_code, 404)
         theirs.refresh_from_db()
         self.assertEqual(theirs.qty_owned, 1)
+
+
+class MatchKeyTests(TestCase):
+    """Spotting the same component written two ways."""
+
+    def test_case_spacing_and_ohms_all_fold_together(self):
+        canonical = match_key("Resistor", "10k")
+        for value in ["10 k", "10K", "10kΩ", "10 kohms", "10kohm"]:
+            with self.subTest(value=value):
+                self.assertEqual(match_key("resistor", value), canonical)
+
+    def test_micro_signs_agree(self):
+        canonical = match_key("Capacitor", "4.7uF")
+        for value in ["4.7µF", "4.7μF"]:
+            with self.subTest(value=value):
+                self.assertEqual(match_key("Capacitor", value), canonical)
+
+    def test_full_stops_are_kept_so_decimals_stay_distinct(self):
+        """Stripping them would fold 4.7k into 47k and invent a duplicate."""
+        self.assertNotEqual(match_key("R", "4.7k"), match_key("R", "47k"))
+
+    def test_a_word_containing_ohm_is_not_mangled(self):
+        self.assertEqual(match_key("Ohmite"), ("ohmite", ""))
+
+    def test_hyphens_and_spacing_in_names_agree(self):
+        self.assertEqual(match_key("Micro servo SG90"), match_key("micro-servo sg90"))
+
+
+class MergeTests(BaseCase):
+    """Two rows for one component split your counts. Fold them together."""
+
+    def setUp(self):
+        super().setUp()
+        self.keep = self.part("Resistor", qty=100, value="10k")
+        self.dupe = self.part("resistor", qty=80, value="10 k")
+
+    def test_quantities_and_wants_add_up(self):
+        Part.objects.filter(pk=self.dupe.pk).update(qty_to_buy=25)
+        self.dupe.refresh_from_db()
+        self.dupe.merge_into(self.keep)
+
+        self.keep.refresh_from_db()
+        self.assertEqual(self.keep.qty_owned, 180)
+        self.assertEqual(self.keep.qty_to_buy, 25)
+        self.assertFalse(Part.objects.filter(pk=self.dupe.pk).exists())
+
+    def test_lines_in_the_same_project_are_combined(self):
+        proj = self.project("Shared")
+        ProjectPart.objects.create(project=proj, part=self.keep, qty_allocated=10)
+        ProjectPart.objects.create(project=proj, part=self.dupe, qty_allocated=6)
+
+        self.dupe.merge_into(self.keep)
+
+        self.assertEqual(proj.lines.count(), 1)
+        line = proj.lines.get()
+        self.assertEqual(line.part, self.keep)
+        self.assertEqual(line.qty_allocated, 16)
+
+    def test_lines_elsewhere_simply_move_across(self):
+        proj = self.project("Only the duplicate")
+        ProjectPart.objects.create(project=proj, part=self.dupe, qty_allocated=4)
+
+        self.dupe.merge_into(self.keep)
+
+        line = proj.lines.get()
+        self.assertEqual(line.part, self.keep)
+        self.assertEqual(line.qty_allocated, 4)
+
+    def test_history_carries_over_and_still_reconciles(self):
+        self.keep.receive(20)
+        self.dupe.adjust_stock(-5, MovementReason.CORRECTION)
+        self.dupe.merge_into(self.keep)
+        self.keep.refresh_from_db()
+
+        ledger = sum(self.keep.movements.values_list("delta", flat=True))
+        self.assertEqual(ledger, self.keep.qty_owned)
+
+        newest = self.keep.movements.order_by("created_at", "pk").last()
+        self.assertEqual(newest.balance_after, self.keep.qty_owned)
+
+    def test_running_balances_are_recomputed_not_left_stale(self):
+        """Two interleaved balance sequences would otherwise be nonsense."""
+        self.keep.receive(20)
+        self.dupe.receive(10)
+        self.dupe.merge_into(self.keep)
+        self.keep.refresh_from_db()
+
+        running = 0
+        for movement in self.keep.movements.order_by("created_at", "pk"):
+            running += movement.delta
+            self.assertEqual(movement.balance_after, running)
+
+    def test_the_merge_itself_is_recorded(self):
+        self.dupe.merge_into(self.keep)
+        marker = self.keep.movements.filter(reason=MovementReason.MERGE).get()
+        self.assertEqual(marker.delta, 0)
+        self.assertIn("80 unit(s)", marker.note)
+
+    def test_a_part_cannot_be_merged_into_itself(self):
+        with self.assertRaises(ValidationError):
+            self.keep.merge_into(self.keep)
+
+    def test_parts_from_different_accounts_cannot_be_merged(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Theirs", qty_owned=5)
+        with self.assertRaises(ValidationError):
+            self.dupe.merge_into(theirs)
+
+    def test_merging_through_the_page(self):
+        response = self.client.post(
+            reverse("part_merge", args=[self.dupe.pk]), {"target": self.keep.pk}
+        )
+        self.assertRedirects(response, reverse("part_detail", args=[self.keep.pk]))
+        self.keep.refresh_from_db()
+        self.assertEqual(self.keep.qty_owned, 180)
+
+    def test_you_cannot_merge_someone_elses_part(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Theirs", qty_owned=5)
+        response = self.client.post(
+            reverse("part_merge", args=[theirs.pk]), {"target": self.keep.pk}
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Part.objects.filter(pk=theirs.pk).exists())
+
+    def test_you_cannot_merge_into_someone_elses_part(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Theirs", qty_owned=5)
+        response = self.client.post(
+            reverse("part_merge", args=[self.dupe.pk]), {"target": theirs.pk}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Part.objects.filter(pk=self.dupe.pk).exists())
+
+
+class DuplicateFinderTests(BaseCase):
+    url = reverse_lazy("part_duplicates")
+
+    def test_groups_parts_that_look_the_same(self):
+        self.part("Resistor", qty=10, value="10k")
+        self.part("resistor", qty=5, value="10 K")
+        self.part("DHT22", qty=2)
+
+        groups = self.client.get(self.url).context["duplicates"]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(len(groups[0]), 2)
+
+    def test_says_nothing_when_there_is_nothing(self):
+        self.part("Resistor", qty=10, value="4.7k")
+        self.part("Resistor", qty=10, value="47k")
+        response = self.client.get(self.url)
+        self.assertEqual(response.context["duplicates"], [])
+        self.assertContains(response, "Nothing looks duplicated")
+
+    def test_the_part_page_warns_about_its_twin(self):
+        keep = self.part("Resistor", qty=10, value="10k")
+        self.part("resistor", qty=5, value="10 K")
+        response = self.client.get(reverse("part_detail", args=[keep.pk]))
+        self.assertEqual(len(response.context["twins"]), 1)
+        self.assertContains(response, "looks like the same component")
+
+    def test_only_your_own_parts_are_compared(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        Part.objects.create(user=stranger, name="Resistor", value="10k", qty_owned=1)
+        self.part("Resistor", qty=10, value="10k")
+        self.assertEqual(self.client.get(self.url).context["duplicates"], [])
 
 
 class WantListTests(BaseCase):

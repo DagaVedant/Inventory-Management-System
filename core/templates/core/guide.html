@@ -154,6 +154,21 @@ ESP32 devkit, 2, , module, mcu, wifi</code></pre>
 </table>
 </figure>
 
+<h2>Two rows for one component</h2>
+<p>
+  <code>10k</code>, <code>10 K</code> and <code>10k&#937;</code> are one
+  resistor to you and three rows to a database, and your count ends up split
+  across all three. The importer refuses near-duplicates, a part's page warns
+  you when it spots one, and
+  <a href="{% url 'part_duplicates' %}">Duplicates</a> lists every group it can
+  find.
+</p>
+<p class="muted">
+  <strong>Merge</strong> folds one into the other: quantities add up, project
+  lines combine, and the history carries over. <code>4.7k</code> and
+  <code>47k</code> are correctly left alone.
+</p>
+
 <h2>Two things worth knowing</h2>
 <p>
   <strong>Bought more?</strong> Use <strong>Add stock</strong> on the part's

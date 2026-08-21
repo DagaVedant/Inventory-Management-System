@@ -2,8 +2,9 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
+from django.db.models import Case, IntegerField, Value, When
 
-from .models import Part, ProjectPart
+from .models import Part, ProjectPart, match_key
 
 
 class SignupForm(UserCreationForm):
@@ -85,7 +86,7 @@ def parse_parts_text(text):
         package = fields[3] if len(fields) > 3 else ""
         tags = ", ".join(f for f in fields[4:] if f)
 
-        key = (name.casefold(), value.casefold())
+        key = match_key(name, value)
         if key in seen:
             errors.append((number, f"Same part as line {seen[key]} - combine them."))
             continue
@@ -138,15 +139,22 @@ class BulkPartImportForm(forms.Form):
         # worse than a rejected one - you can't tell what landed.
         if self.user is not None:
             existing = {
-                (name.casefold(), value.casefold())
+                match_key(name, value): f"{name} {value}".strip()
                 for name, value in Part.objects.filter(user=self.user).values_list(
                     "name", "value"
                 )
             }
             for row in rows:
-                key = (row["name"].casefold(), row["value"].casefold())
-                if key in existing:
-                    errors.append((0, f"{row['name']} is already in your parts list."))
+                clash = existing.get(match_key(row["name"], row["value"]))
+                if clash:
+                    errors.append(
+                        (
+                            0,
+                            f"{row['name']} looks like the {clash} you already "
+                            f"have. Remove the line, or import it under a name "
+                            f"that isn't the same component.",
+                        )
+                    )
 
         if errors:
             raise forms.ValidationError(
@@ -176,6 +184,35 @@ class AddStockForm(forms.Form):
         label="How many arrived",
         widget=forms.NumberInput(attrs={"min": 1, "style": "width:6em"}),
     )
+
+
+class MergePartForm(forms.Form):
+    """Pick the part to keep. The other one is folded into it and deleted."""
+
+    target = forms.ModelChoiceField(
+        queryset=Part.objects.none(),
+        label="Keep this part",
+        empty_label="Choose the one to keep",
+    )
+
+    def __init__(self, *args, source=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.source = source
+        if source is not None:
+            others = Part.objects.filter(user=source.user).exclude(pk=source.pk)
+            # Likely matches first: whoever opened this page almost certainly
+            # wants one of them, and the full list can be hundreds long.
+            likely = [
+                part.pk for part in others if part.match_key() == source.match_key()
+            ]
+            self.fields["target"].queryset = others.order_by(
+                Case(
+                    When(pk__in=likely, then=Value(0)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                ),
+                "name",
+            )
 
 
 class WantToBuyForm(forms.Form):

@@ -1,0 +1,47 @@
+{% extends "core/base.html" %}
+{% block title %}Merge {{ source.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width:40rem">
+
+<hgroup>
+  <h1>Merge {{ source }} away</h1>
+  <p>Pick the part to keep. This one is folded into it and deleted.</p>
+</hgroup>
+
+<article>
+  <strong>{{ source.qty_owned }}</strong> owned,
+  <strong>{{ line_count }}</strong> project line{{ line_count|pluralize }} and
+  <strong>{{ history_count }}</strong> history line{{ history_count|pluralize }}
+  move across. Where both parts appear in the same project the two lines are
+  combined, because one project can't hold two lines for what is now one part.
+</article>
+
+{% if likely %}
+  <p class="muted">Looks like the same component as
+    {% for part in likely %}<strong>{{ part }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.
+  </p>
+{% else %}
+  <p class="muted">Nothing in your list looks like the same component, so check
+     carefully before merging.</p>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <label for="{{ form.target.id_for_label }}">{{ form.target.label }}</label>
+  {{ form.target }}
+  {{ form.target.errors }}
+
+  <div style="display:flex; gap:.5rem; align-items:center; margin-top:.75rem;">
+    <button type="submit" class="contrast">Merge and delete {{ source.name }}</button>
+    <a href="{% url 'part_detail' source.pk %}" class="muted">Cancel</a>
+  </div>
+</form>
+
+<p class="muted"><small>This can't be undone. The quantities are preserved, so
+nothing is lost from your inventory, but the two parts become one and can't be
+separated again.</small></p>
+
+</div>
+{% endblock %}

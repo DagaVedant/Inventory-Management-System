@@ -1,0 +1,65 @@
+{% extends "core/base.html" %}
+{% block title %}Possible duplicates{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>Possible duplicates</h1>
+  <p>{{ checked }} part{{ checked|pluralize }} checked.</p>
+</hgroup>
+
+{% if duplicates %}
+<article>
+  These look like the same component written more than one way. Case, spacing,
+  hyphens, micro signs and the word "ohm" are all ignored when comparing, so
+  <code>10k</code>, <code>10 K</code> and <code>10kΩ</code> count as one part.
+  <code>4.7k</code> and <code>47k</code> do not.
+</article>
+
+{% for group in duplicates %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col">Package</th>
+      <th scope="col" class="num">Owned</th>
+      <th scope="col" class="num">Held</th>
+      <th scope="col" class="num">Available</th>
+      <th scope="col"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for part in group %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
+        {% if part.value %}<span class="muted">{{ part.value }}</span>{% endif %}
+      </th>
+      <td class="muted">{{ part.package|default:"" }}</td>
+      <td class="num">{{ part.qty_owned }}</td>
+      <td class="num muted">{{ part.held }}</td>
+      <td class="num"><strong>{{ part.available }}</strong></td>
+      <td style="white-space:nowrap">
+        <a href="{% url 'part_merge' part.pk %}" role="button"
+           class="secondary btn-sm">Merge away</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% endfor %}
+
+<p class="muted"><small>Merging keeps one part and folds the other into it:
+quantities add up, project lines combine, and the history carries over. The
+one you merge away is deleted.</small></p>
+
+{% else %}
+  <article>
+    <p><strong>Nothing looks duplicated.</strong></p>
+    <p class="muted">Worth checking again after a big import.</p>
+  </article>
+{% endif %}
+
+<p><a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a></p>
+{% endblock %}

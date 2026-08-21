@@ -12,6 +12,16 @@
   </p>
 </hgroup>
 
+{% if twins %}
+  <article>
+    <strong>This looks like the same component as
+    {% for twin in twins %}<a href="{% url 'part_detail' twin.pk %}">{{ twin }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</strong>
+    <p style="margin:.5rem 0 0"><small>Two rows for one component means your
+       counts are split across both.
+       <a href="{% url 'part_merge' part.pk %}">Merge them</a>.</small></p>
+  </article>
+{% endif %}
+
 {% if part.tag_list %}
   <p>{% for tag in part.tag_list %}<span class="tag">{{ tag }}</span>{% endfor %}</p>
 {% endif %}
@@ -175,6 +185,7 @@
 <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:2rem;">
   <a href="{% url 'part_update' part.pk %}" role="button" class="secondary">Edit</a>
   <a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a>
+  <a href="{% url 'part_merge' part.pk %}" role="button" class="secondary outline">Merge away</a>
   <span style="margin-left:auto">
     <a href="{% url 'part_delete' part.pk %}" class="muted">Delete</a>
   </span>
