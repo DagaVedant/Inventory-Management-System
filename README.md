@@ -104,17 +104,22 @@ python manage.py runserver
 python manage.py seed_demo --user demo --password something
 ```
 
-Twenty realistic parts and four projects: two on the bench holding parts, two
-torn down — one of which cost a regulator and a servo. Safe to re-run; it wipes
-and rebuilds that user's data.
+Thirty-six realistic parts and four projects, chosen so that between them they
+show every state the model has: one holding a lot, one with parts already handed
+back mid-build, one torn down with real losses, and one torn down clean. One
+part is left fully committed so `available: 0` appears on the list. Safe to
+re-run; it wipes and rebuilds that user's data.
 
-### Tests
+### Tests and linting
 
 ```bash
+pip install -r requirements-dev.txt
 python manage.py test core
+ruff check .
+ruff format --check .
 ```
 
-Sixty-five of them, mostly on the arithmetic. The invariant that soldered and
+Sixty-seven of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
@@ -163,9 +168,23 @@ account password.
 python manage.py shell -c "from django.contrib.auth import get_user_model; U=get_user_model(); u=U.objects.get(username='...'); u.set_password('...'); u.save()"
 ```
 
+## Continuous integration
+
+Every push and pull request runs `.github/workflows/ci.yml`: lint, format check,
+Django system checks, a missing-migrations check, the full test suite, and
+`check --deploy` with production settings. That last one means a security
+setting can't quietly regress, and the migration check catches a model changed
+without `makemigrations` — which deploys fine and then fails against the real
+database.
+
 ## Deployment
 
 Railway, Postgres, WhiteNoise for static files, gunicorn.
+
+`GET /healthz/` is an unauthenticated liveness probe returning JSON. It touches
+the database, because a container that booted but can't reach Postgres isn't
+healthy and shouldn't be handed traffic. It's exempt from the HTTPS redirect so
+an internal probe over plain HTTP doesn't get a 301 and read as a failure.
 
 | Variable | |
 |---|---|
@@ -217,4 +236,9 @@ core/
 templates/registration/  login, signup, password reset
                          (project level so they beat the admin's copies)
 config/          settings, urls, wsgi
+.github/workflows/ci.yml
 ```
+
+## License
+
+MIT — see `LICENSE`.

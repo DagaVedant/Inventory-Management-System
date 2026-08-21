@@ -2,20 +2,19 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import OperationalError, connection, transaction
 from django.db.models import Count, ProtectedError, Q
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
 from .forms import AllocationForm, PartForm, SignupForm, TeardownFormSet
-from .models import Part, Project, ProjectPart, ProjectStatus
-
+from .models import Part, Project, ProjectPart
 
 # ----------------------------------------------------------------- accounts
 
@@ -65,6 +64,19 @@ class GuardedPasswordResetView(auth_views.PasswordResetView):
                 status=503,
             )
         return super().dispatch(request, *args, **kwargs)
+
+
+def healthz(request):
+    """Liveness probe for the platform. Deliberately not behind login.
+
+    Checks the database too: a container that booted but can't reach Postgres
+    is not healthy, and answering 200 would let it take traffic it can't serve.
+    """
+    try:
+        connection.ensure_connection()
+    except OperationalError:
+        return JsonResponse({"status": "error", "database": "unreachable"}, status=503)
+    return JsonResponse({"status": "ok"})
 
 
 class OwnedMixin(LoginRequiredMixin):
@@ -368,8 +380,7 @@ def project_teardown(request, pk):
     else:
         formset = TeardownFormSet(
             initial=[
-                {"line_id": line.pk, "qty_returned": line.remaining}
-                for line in lines
+                {"line_id": line.pk, "qty_returned": line.remaining} for line in lines
             ]
         )
 

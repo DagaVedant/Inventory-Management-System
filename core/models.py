@@ -1,9 +1,9 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.utils import timezone
 from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 
 class ProjectStatus(models.TextChoices):
@@ -69,9 +69,7 @@ class Part(models.Model):
 
     def compute_held(self):
         """How many are locked inside active projects right now."""
-        return self.allocations.filter(
-            project__status=ProjectStatus.ACTIVE
-        ).aggregate(
+        return self.allocations.filter(project__status=ProjectStatus.ACTIVE).aggregate(
             held=Coalesce(
                 Sum(
                     F("qty_allocated")
@@ -151,7 +149,9 @@ class Project(models.Model):
         seen = set()
         for line, returned, soldered, broken in outcomes:
             if line.project_id != self.pk:
-                raise ValidationError("Allocation line does not belong to this project.")
+                raise ValidationError(
+                    "Allocation line does not belong to this project."
+                )
             if min(returned, soldered, broken) < 0:
                 raise ValidationError("Quantities cannot be negative.")
             if returned + soldered + broken != line.remaining:
