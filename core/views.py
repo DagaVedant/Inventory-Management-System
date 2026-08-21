@@ -37,6 +37,8 @@ from .models import (
     ProjectPart,
     ProjectStatus,
     StockMovement,
+    normalise_tags,
+    tag_filter,
 )
 
 # ----------------------------------------------------------------- accounts
@@ -233,6 +235,10 @@ class PartListView(OwnedMixin, ListView):
                 | Q(notes__icontains=query)
             )
 
+        tag = self.request.GET.get("tag", "").strip()
+        if tag:
+            qs = qs.filter(tag_filter(tag))
+
         key, descending = self.sort_key()
         field = self.SORTABLE[key][1]
         # Name as a tiebreak so paging is stable when the sort column ties,
@@ -267,11 +273,21 @@ class PartListView(OwnedMixin, ListView):
         context["columns"] = columns
         context["page_params"] = page_params.urlencode()
         context["query"] = self.request.GET.get("q", "")
+        context["tag"] = self.request.GET.get("tag", "").strip()
         context["total_parts"] = Part.objects.filter(user=self.request.user).count()
         return context
 
 
-class PartCreateView(OwnedMixin, CreateView):
+class TagChoicesMixin:
+    """Hand the form the tags already in use, for autocomplete."""
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["known_tags"] = [tag for tag, _ in tag_counts(self.request.user)]
+        return kwargs
+
+
+class PartCreateView(TagChoicesMixin, OwnedMixin, CreateView):
     model = Part
     form_class = PartForm
     template_name = "core/part_form.html"
@@ -317,6 +333,20 @@ class PartDetailView(OwnedMixin, DetailView):
         context["add_stock_form"] = AddStockForm()
         context["want_form"] = WantToBuyForm(initial={"qty": self.object.qty_to_buy})
         key = self.object.match_key()
+        tags = self.object.tag_list()
+        similar = Part.objects.none()
+        if tags:
+            query = Q()
+            for tag in tags:
+                query |= tag_filter(tag)
+            similar = (
+                Part.objects.filter(user=self.request.user)
+                .filter(query)
+                .exclude(pk=self.object.pk)
+                .with_availability()
+                .order_by("-available", "name")[:8]
+            )
+        context["similar"] = similar
         context["twins"] = [
             part
             for part in Part.objects.filter(user=self.request.user).exclude(
@@ -356,6 +386,55 @@ def part_add_stock(request, pk):
         messages.error(request, "Enter how many arrived.")
 
     return redirect("part_detail", pk=part.pk)
+
+
+def tag_counts(user):
+    """Every tag this person uses, with how many parts carry it."""
+    counts = {}
+    for tags in (
+        Part.objects.filter(user=user).exclude(tags="").values_list("tags", flat=True)
+    ):
+        for tag in tags.split(", "):
+            if tag:
+                counts[tag] = counts.get(tag, 0) + 1
+    return sorted(counts.items(), key=lambda pair: (-pair[1], pair[0].casefold()))
+
+
+@login_required
+def tag_index(request):
+    """The canonical tag list, and the only place a typo can be undone."""
+    if request.method == "POST":
+        old = request.POST.get("old", "").strip()
+        new = normalise_tags(request.POST.get("new", ""))
+
+        if not old:
+            messages.error(request, "Pick a tag to rename.")
+        else:
+            affected = list(
+                Part.objects.filter(user=request.user).filter(tag_filter(old))
+            )
+            for part in affected:
+                kept = [t for t in part.tag_list() if t.casefold() != old.casefold()]
+                if new:
+                    kept.extend(
+                        t
+                        for t in new.split(", ")
+                        if t.casefold() not in {k.casefold() for k in kept}
+                    )
+                part.tags = normalise_tags(", ".join(kept))
+                part.save(update_fields=["tags"])
+
+            if new:
+                messages.success(
+                    request, f"Renamed {old} to {new} on {len(affected)} part(s)."
+                )
+            else:
+                messages.success(
+                    request, f"Removed {old} from {len(affected)} part(s)."
+                )
+        return redirect("tag_index")
+
+    return render(request, "core/tag_index.html", {"tags": tag_counts(request.user)})
 
 
 @login_required
@@ -475,7 +554,7 @@ def part_import(request):
     return render(request, "core/part_import.html", {"form": form})
 
 
-class PartUpdateView(OwnedMixin, UpdateView):
+class PartUpdateView(TagChoicesMixin, OwnedMixin, UpdateView):
     model = Part
     form_class = PartForm
     template_name = "core/part_form.html"

@@ -884,6 +884,107 @@ class AddStockTests(BaseCase):
         self.assertEqual(theirs.qty_owned, 1)
 
 
+class TagTests(BaseCase):
+    """Tags were a free-text string with no way to use or correct them."""
+
+    def test_they_are_normalised_on_save(self):
+        p = self.part(tags="  sensor ,,  i2c ,sensor, ")
+        p.refresh_from_db()
+        self.assertEqual(p.tags, "sensor, i2c")
+
+    def test_duplicates_collapse_regardless_of_case(self):
+        p = self.part(tags="Sensor, sensor, SENSOR")
+        p.refresh_from_db()
+        self.assertEqual(p.tag_list(), ["Sensor"])
+
+    def test_filtering_matches_a_whole_tag_not_a_substring(self):
+        """icontains would have made i2c also match i2c-pullup."""
+        wanted = self.part("BMP280", tags="sensor, i2c")
+        self.part("Resistor", tags="passive, i2c-pullup")
+
+        response = self.client.get(reverse("part_list"), {"tag": "i2c"})
+        self.assertEqual([p.pk for p in response.context["parts"]], [wanted.pk])
+
+    def test_filtering_finds_a_tag_in_any_position(self):
+        first = self.part("A", tags="target, other")
+        middle = self.part("B", tags="other, target, more")
+        last = self.part("C", tags="other, target")
+        only = self.part("D", tags="target")
+        self.part("E", tags="unrelated")
+
+        response = self.client.get(reverse("part_list"), {"tag": "target"})
+        self.assertEqual(
+            sorted(p.pk for p in response.context["parts"]),
+            sorted([first.pk, middle.pk, last.pk, only.pk]),
+        )
+
+    def test_the_filter_survives_sorting(self):
+        self.part("A", qty=5, tags="target")
+        self.part("B", qty=99, tags="target")
+        self.part("C", qty=1, tags="other")
+        response = self.client.get(
+            reverse("part_list"), {"tag": "target", "sort": "-owned"}
+        )
+        self.assertEqual([p.name for p in response.context["parts"]], ["B", "A"])
+
+    def test_the_index_counts_every_tag(self):
+        self.part("A", tags="sensor, i2c")
+        self.part("B", tags="sensor")
+        response = self.client.get(reverse("tag_index"))
+        self.assertEqual(dict(response.context["tags"]), {"sensor": 2, "i2c": 1})
+
+    def test_renaming_fixes_a_typo_everywhere_at_once(self):
+        a = self.part("A", tags="sensr, i2c")
+        b = self.part("B", tags="sensr")
+        self.client.post(reverse("tag_index"), {"old": "sensr", "new": "sensor"})
+
+        a.refresh_from_db()
+        b.refresh_from_db()
+        self.assertEqual(a.tag_list(), ["i2c", "sensor"])
+        self.assertEqual(b.tag_list(), ["sensor"])
+
+    def test_renaming_onto_an_existing_tag_merges_them(self):
+        p = self.part("A", tags="sensr, sensor")
+        self.client.post(reverse("tag_index"), {"old": "sensr", "new": "sensor"})
+        p.refresh_from_db()
+        self.assertEqual(p.tag_list(), ["sensor"])
+
+    def test_an_empty_new_name_removes_the_tag(self):
+        p = self.part("A", tags="keep, drop")
+        self.client.post(reverse("tag_index"), {"old": "drop", "new": ""})
+        p.refresh_from_db()
+        self.assertEqual(p.tag_list(), ["keep"])
+
+    def test_renaming_leaves_other_peoples_parts_alone(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Theirs", tags="sensr")
+        self.part("Mine", tags="sensr")
+        self.client.post(reverse("tag_index"), {"old": "sensr", "new": "sensor"})
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.tag_list(), ["sensr"])
+
+    def test_the_form_offers_tags_you_already_use(self):
+        self.part("A", tags="sensor, i2c")
+        response = self.client.get(reverse("part_create"))
+        self.assertContains(response, "known-tags")
+        self.assertContains(response, 'value="sensor"')
+
+    def test_a_part_page_suggests_others_sharing_a_tag(self):
+        p = self.part("BMP280", tags="sensor, i2c")
+        twin = self.part("BME280", qty=4, tags="sensor, i2c")
+        self.part("Resistor", tags="passive")
+
+        response = self.client.get(reverse("part_detail", args=[p.pk]))
+        self.assertEqual([o.pk for o in response.context["similar"]], [twin.pk])
+        self.assertContains(response, "Might do instead")
+
+    def test_an_untagged_part_suggests_nothing(self):
+        p = self.part("Lonely", tags="")
+        self.part("Other", tags="sensor")
+        response = self.client.get(reverse("part_detail", args=[p.pk]))
+        self.assertEqual(list(response.context["similar"]), [])
+
+
 class MatchKeyTests(TestCase):
     """Spotting the same component written two ways."""
 
