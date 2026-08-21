@@ -8,15 +8,32 @@
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <style>
-    :root { --pico-form-element-spacing-vertical: .5rem; }
-    body > main { padding-block: 1.5rem; }
+    /* Pico scales the root font size up with the viewport, reaching ~131% on a
+       large monitor. That suits a text page and makes a table-heavy one feel
+       zoomed in, so pin it and spend the space on width instead. */
+    html { font-size: 100%; }
+    .container { max-width: 1400px; }
+
+    :root {
+      --pico-form-element-spacing-vertical: .4rem;
+      --pico-typography-spacing-vertical: .75rem;
+      --pico-block-spacing-vertical: .75rem;
+    }
+    h1 { font-size: 1.55rem; margin-bottom: .2rem; }
+    h2 { font-size: 1.1rem; margin: 1.6rem 0 .5rem; }
+    hgroup { margin-bottom: 1rem; }
+    hgroup > p { font-size: .9rem; }
+    article { padding: .7rem .9rem; }
+    figure { margin-bottom: 1rem; }
+    body > main { padding-block: 1rem; }
     .topbar { display:flex; gap:1rem; align-items:baseline; flex-wrap:wrap;
               border-bottom:1px solid var(--pico-muted-border-color);
               padding-block:.75rem; margin-bottom:1.5rem; }
     .topbar .spacer { margin-left:auto; }
     .topbar a { text-decoration:none; }
     .topbar strong a { font-weight:700; }
-    table { font-size:.9rem; }
+    table { font-size:.85rem; margin-bottom:0; }
+    table th, table td { padding:.35rem .5rem; }
     td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
     .muted { color:var(--pico-muted-color); }
     .tag { display:inline-block; font-size:.72rem; padding:.1rem .45rem;

@@ -12,7 +12,7 @@
 {% if not total_parts %}
   <article>
     <p><strong>Nothing in here yet.</strong></p>
-    <p class="muted">The fastest way in is to paste a list — one part per line,
+    <p class="muted">The fastest way in is to paste a list: one part per line,
        name and quantity are all you need.</p>
     <a href="{% url 'part_import' %}" role="button">Paste your bin in</a>
     <a href="{% url 'part_create' %}" role="button" class="secondary">Add one at a time</a>
@@ -85,7 +85,7 @@
 </table>
 </figure>
 {% else %}
-  <p class="muted">Nothing to buy — every live build got what it asked for.</p>
+  <p class="muted">Nothing to buy. Every live build got what it asked for.</p>
 {% endif %}
 
 {% if running_low %}
