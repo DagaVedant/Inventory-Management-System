@@ -549,7 +549,7 @@ class SignupTests(TestCase):
 
     def test_signing_up_creates_the_account_and_logs_you_straight_in(self):
         response = self.client.post(self.url, self.credentials())
-        self.assertRedirects(response, reverse("part_list"))
+        self.assertRedirects(response, reverse("dashboard"))
         self.assertTrue(User.objects.filter(username="newcomer").exists())
         self.assertEqual(
             int(self.client.session["_auth_user_id"]),
@@ -574,7 +574,7 @@ class SignupTests(TestCase):
     def test_already_logged_in_users_are_sent_to_the_app(self):
         user = User.objects.create_user("owner", "o@e.com", "pw12345!")
         self.client.force_login(user)
-        self.assertRedirects(self.client.get(self.url), reverse("part_list"))
+        self.assertRedirects(self.client.get(self.url), reverse("dashboard"))
 
     def test_no_code_field_when_signup_is_open(self):
         self.assertNotContains(self.client.get(self.url), "Invite code")
@@ -592,7 +592,7 @@ class SignupTests(TestCase):
         self.assertFalse(User.objects.filter(username="newcomer").exists())
 
         response = self.client.post(self.url, self.credentials(signup_code="letmein"))
-        self.assertRedirects(response, reverse("part_list"))
+        self.assertRedirects(response, reverse("dashboard"))
         self.assertTrue(User.objects.filter(username="newcomer").exists())
 
 
@@ -952,6 +952,46 @@ class DashboardTests(BaseCase):
         response = self.client.get(self.url)
         self.assertEqual(list(response.context["active"]), [])
         self.assertEqual(response.context["total_parts"], 0)
+
+
+class GuideTests(TestCase):
+    def test_readable_without_an_account(self):
+        response = Client().get(reverse("guide"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "They get held")
+
+    def test_covers_the_whole_loop(self):
+        response = Client().get(reverse("guide"))
+        for topic in ["Import", "Tear down", "Returned", "Soldered in", "short"]:
+            with self.subTest(topic=topic):
+                self.assertContains(response, topic)
+
+    def test_offers_signup_to_visitors_but_not_to_members(self):
+        anonymous = Client().get(reverse("guide"))
+        self.assertContains(anonymous, reverse("signup"))
+
+        user = User.objects.create_user("owner", "o@e.com", "pw12345!")
+        client = Client()
+        client.force_login(user)
+        self.assertNotContains(client.get(reverse("guide")), reverse("signup"))
+
+    def test_login_page_points_newcomers_at_it(self):
+        self.assertContains(Client().get(reverse("login")), reverse("guide"))
+
+
+class NavigationTests(BaseCase):
+    def test_brand_goes_to_the_guide_and_bench_to_the_dashboard(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, f'<strong><a href="{reverse("guide")}">')
+        self.assertContains(response, f'<a href="{reverse("dashboard")}">Bench</a>')
+
+    def test_bench_is_still_the_landing_page_after_login(self):
+        client = Client()
+        client.login(username="owner", password="pw12345!")
+        response = client.post(
+            reverse("login"), {"username": "owner", "password": "pw12345!"}
+        )
+        self.assertRedirects(response, reverse("dashboard"))
 
 
 class HealthCheckTests(TestCase):

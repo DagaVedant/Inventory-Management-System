@@ -1,0 +1,164 @@
+{% extends "core/base.html" %}
+{% block title %}How it works{% endblock %}
+
+{% block content %}
+<div style="max-width:44rem">
+
+<hgroup>
+  <h1>How it works</h1>
+  <p>Two minutes, then you can ignore this forever.</p>
+</hgroup>
+
+<article>
+  <strong>Parts don't get used up. They get held.</strong><br>
+  A project borrows parts from your bin and keeps them until you tear it down.
+  Then most of them come back, minus the ones soldered into the board and the
+  ones that died.
+</article>
+
+<p>That means every part has three numbers, and only the first one is stored:</p>
+
+<figure>
+<table>
+  <tbody>
+    <tr>
+      <th scope="row">Owned</th>
+      <td>Everything you have. Loose in the bin, plus whatever live builds are
+          holding.</td>
+    </tr>
+    <tr>
+      <th scope="row">Held</th>
+      <td>Sitting inside a project right now. You own them, you just can't
+          reach them.</td>
+    </tr>
+    <tr>
+      <th scope="row">Available</th>
+      <td><strong>Owned minus held.</strong> The number you actually care
+          about.</td>
+    </tr>
+  </tbody>
+</table>
+</figure>
+
+<h2>1. Get your parts in</h2>
+<p>
+  The fast way is <a href="{% url 'part_import' %}">Import</a>: paste a list,
+  one part per line. Name and quantity are all that's required.
+</p>
+<pre><code>10k resistor, 180, 10k, through-hole, passive, resistor
+DHT22, 4
+ESP32 devkit, 2, , module, mcu, wifi</code></pre>
+<p class="muted">
+  The fields are name, quantity, value, package, then tags. Anything after the
+  fourth comma becomes a tag, so tags can contain commas. If one line is
+  malformed nothing is imported and you're told which line, so you can't end up
+  half done without knowing it.
+</p>
+<p>Or use <a href="{% url 'part_create' %}">Add part</a> and hit
+   <strong>Save and add another</strong>, which puts you back on an empty form
+   with the cursor in the name field.</p>
+
+<h2>2. Start a build</h2>
+<p>
+  Make a project, then add the parts it needs. Allocating doesn't change what
+  you own, only what's available, because the parts are still yours. They're
+  just spoken for.
+</p>
+
+<h2>3. When you haven't got enough</h2>
+<p>
+  Asking for six when you have two isn't an error. You get the two, and the
+  other four are recorded as <strong>short</strong>. Short parts appear on the
+  shopping list on the <a href="{% url 'dashboard' %}">Bench</a>, totalled per
+  part across all your live builds, because you buy per part rather than per
+  project.
+</p>
+
+<h2>4. Changed your mind mid-build</h2>
+<p>
+  <strong>Return</strong> on a project line hands parts straight back to the
+  shelf without ending the project. <strong>Remove</strong> deletes a line you
+  never actually pulled parts for.
+</p>
+
+<h2>5. Tear it down</h2>
+<p>
+  This is the part that matters. When a build is finished or scrapped, hit
+  <strong>Tear down</strong> and say what became of every part:
+</p>
+<figure>
+<table>
+  <tbody>
+    <tr>
+      <th scope="row">Returned</th>
+      <td>Back on the shelf and available again.</td>
+    </tr>
+    <tr>
+      <th scope="row">Soldered in</th>
+      <td>Inside a finished board. Gone for good.</td>
+    </tr>
+    <tr>
+      <th scope="row">Broken</th>
+      <td>Burned out or snapped. Gone for good.</td>
+    </tr>
+  </tbody>
+</table>
+</figure>
+<p class="muted">
+  Every line has to add up exactly to what the project was holding, with no
+  leftovers. Everything is pre-filled as returned, so a clean teardown is one
+  click. Soldered and broken are the only two ways a part ever leaves your
+  inventory.
+</p>
+<p>
+  The project is then archived. It keeps its parts list forever, so you can
+  look back at what a build was made of and what it cost you.
+</p>
+
+<h2>Where things live</h2>
+<figure>
+<table>
+  <tbody>
+    <tr>
+      <th scope="row"><a href="{% url 'dashboard' %}">Bench</a></th>
+      <td>What's in progress, what to buy, what you're nearly out of.</td>
+    </tr>
+    <tr>
+      <th scope="row"><a href="{% url 'part_list' %}">Parts</a></th>
+      <td>Everything you own. Search it, and click any column to sort.
+          Availability ascending answers "what am I nearly out of".</td>
+    </tr>
+    <tr>
+      <th scope="row"><a href="{% url 'project_list' %}">Projects</a></th>
+      <td>Live builds and everything you've torn down.</td>
+    </tr>
+    <tr>
+      <th scope="row">A part's own page</th>
+      <td>Click any part name. Shows which builds are holding it and every
+          finished build that ate some.</td>
+    </tr>
+  </tbody>
+</table>
+</figure>
+
+<h2>Two things worth knowing</h2>
+<p>
+  <strong>Bought more?</strong> Use <strong>Add stock</strong> on the part's
+  page. It adds to what you own so you don't do the arithmetic yourself.
+  Fixing a miscount is different: edit the part and set the real number.
+</p>
+<p>
+  <strong>Numbers drifted?</strong> They will. Count what's actually in the bin
+  and edit the part. The app can't stop you being wrong, only make being right
+  cheap.
+</p>
+
+{% if not user.is_authenticated %}
+  <p style="margin-top:2rem">
+    <a href="{% url 'login' %}" role="button">Log in</a>
+    <a href="{% url 'signup' %}" role="button" class="secondary">Create an account</a>
+  </p>
+{% endif %}
+
+</div>
+{% endblock %}
