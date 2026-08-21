@@ -1,0 +1,62 @@
+{% extends "core/base.html" %}
+{% block title %}Reopen {{ project.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width:44rem">
+
+<hgroup>
+  <h1>Put {{ project.name }} back on the bench?</h1>
+  <p>Torn down {{ project.archived_at|date:"j M Y" }}.</p>
+</hgroup>
+
+<article>
+  This undoes the teardown. <strong>{{ coming_back }}</strong>
+  part{{ coming_back|pluralize }} recorded as soldered in or broken
+  {{ coming_back|pluralize:"comes,come" }} back into your inventory, and the
+  project starts holding its parts again.
+</article>
+
+{% if lines %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col" class="num">Soldered</th>
+      <th scope="col" class="num">Broken</th>
+      <th scope="col" class="num">Back to stock</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in lines %}
+    <tr>
+      <th scope="row">{{ line.part }}</th>
+      <td class="num muted">{{ line.qty_soldered }}</td>
+      <td class="num muted">{{ line.qty_broken }}</td>
+      <td class="num"><strong>{{ line.lost }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% else %}
+  <p class="muted">This teardown cost you nothing, so no quantities change.
+     The project simply goes back to holding its parts.</p>
+{% endif %}
+
+<p class="muted"><small>
+  Parts you handed back <em>during</em> the build stay handed back. Only what
+  this teardown did gets reversed. The reversal is recorded in each part's
+  history, so the undo is as visible as the teardown was.
+</small></p>
+
+<form method="post">
+  {% csrf_token %}
+  <div style="display:flex; gap:.5rem; align-items:center;">
+    <button type="submit">Reopen</button>
+    <a href="{{ detail_url }}" class="muted">Cancel</a>
+  </div>
+</form>
+
+</div>
+{% endblock %}

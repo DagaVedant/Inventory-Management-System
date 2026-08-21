@@ -562,6 +562,45 @@ def line_return(request, pk, line_pk):
 
 
 @login_required
+def project_reopen(request, pk):
+    """Undo a teardown. Confirmation on GET, the real thing on POST."""
+    project = _get_project(request, pk)
+    detail_url = reverse("project_detail", args=[project.pk])
+
+    if project.is_active:
+        messages.warning(request, "That project is already on the bench.")
+        return HttpResponseRedirect(detail_url)
+
+    lines = list(project.lines.select_related("part").order_by("part__name"))
+    coming_back = sum(line.lost for line in lines)
+
+    if request.method == "POST":
+        try:
+            project.reopen()
+        except ValidationError as exc:
+            for message in exc.messages:
+                messages.error(request, message)
+        else:
+            messages.success(
+                request,
+                f"{project} is back on the bench. "
+                f"{coming_back} part(s) restored to your inventory.",
+            )
+        return HttpResponseRedirect(detail_url)
+
+    return render(
+        request,
+        "core/project_reopen.html",
+        {
+            "project": project,
+            "lines": [line for line in lines if line.lost or line.teardown_returned],
+            "coming_back": coming_back,
+            "detail_url": detail_url,
+        },
+    )
+
+
+@login_required
 def project_teardown(request, pk):
     """Say what became of everything this project is holding, then archive it."""
     project = _get_project(request, pk)

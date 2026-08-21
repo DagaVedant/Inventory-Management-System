@@ -861,6 +861,144 @@ class AddStockTests(BaseCase):
         self.assertEqual(theirs.qty_owned, 1)
 
 
+class ReopenTests(BaseCase):
+    """Teardown is the one operation that destroys information. Undo it."""
+
+    def tear_down(self, project, rows):
+        project.tear_down(rows)
+        project.refresh_from_db()
+
+    def test_a_teardown_can_be_taken_back_completely(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+
+        self.tear_down(proj, [(line, 1, 2, 1)])
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 7)
+
+        proj.reopen()
+        proj.refresh_from_db()
+        p.refresh_from_db()
+        line.refresh_from_db()
+
+        self.assertEqual(proj.status, ProjectStatus.ACTIVE)
+        self.assertIsNone(proj.archived_at)
+        self.assertEqual(p.qty_owned, 10)
+        self.assertEqual(p.compute_held(), 4)
+        self.assertEqual(p.compute_available(), 6)
+        self.assertEqual(line.qty_soldered, 0)
+        self.assertEqual(line.qty_broken, 0)
+        self.assertEqual(line.qty_returned, 0)
+        self.assertEqual(line.remaining, 4)
+
+    def test_parts_handed_back_mid_build_stay_handed_back(self):
+        """The reason this needed a field of its own. qty_returned mixes early
+        returns with teardown returns, and only the second kind is undone."""
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=6)
+
+        line.qty_returned = 2  # handed back weeks before the teardown
+        line.save()
+
+        self.tear_down(proj, [(line, 1, 2, 1)])
+        proj.reopen()
+        line.refresh_from_db()
+
+        self.assertEqual(line.qty_returned, 2)
+        self.assertEqual(line.remaining, 4)
+        self.assertIsNone(line.teardown_returned)
+
+    def test_the_undo_is_recorded_like_everything_else(self):
+        p = self.part(qty=10)
+        proj = self.project("Doomed")
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        self.tear_down(proj, [(line, 0, 3, 1)])
+        proj.reopen()
+
+        movement = p.movements.first()
+        self.assertEqual(movement.reason, MovementReason.REOPEN)
+        self.assertEqual(movement.delta, 4)
+        self.assertEqual(movement.project, proj)
+        p.refresh_from_db()
+        self.assertEqual(movement.balance_after, p.qty_owned)
+
+    def test_a_clean_teardown_reopens_without_moving_any_quantity(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        self.tear_down(proj, [(line, 4, 0, 0)])
+        proj.reopen()
+
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 10)
+        self.assertEqual(self.reopen_movements(p).count(), 0)
+
+    def reopen_movements(self, part):
+        return part.movements.filter(reason=MovementReason.REOPEN)
+
+    def test_reopening_a_live_project_is_refused(self):
+        proj = self.project()
+        with self.assertRaises(ValidationError):
+            proj.reopen()
+
+    def test_tear_down_reopen_tear_down_lands_in_the_same_place(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+
+        self.tear_down(proj, [(line, 1, 2, 1)])
+        p.refresh_from_db()
+        first = p.qty_owned
+
+        proj.reopen()
+        line.refresh_from_db()
+        self.tear_down(proj, [(line, 1, 2, 1)])
+        p.refresh_from_db()
+
+        self.assertEqual(p.qty_owned, first)
+
+    def test_the_page_says_what_will_come_back(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        self.tear_down(proj, [(line, 0, 3, 1)])
+
+        response = self.client.get(reverse("project_reopen", args=[proj.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["coming_back"], 4)
+        self.assertContains(response, "10k resistor")
+
+    def test_posting_actually_reopens_it(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        self.tear_down(proj, [(line, 0, 3, 1)])
+
+        response = self.client.post(reverse("project_reopen", args=[proj.pk]))
+        self.assertRedirects(response, reverse("project_detail", args=[proj.pk]))
+        proj.refresh_from_db()
+        p.refresh_from_db()
+        self.assertEqual(proj.status, ProjectStatus.ACTIVE)
+        self.assertEqual(p.qty_owned, 10)
+
+    def test_a_live_project_just_redirects(self):
+        proj = self.project()
+        response = self.client.get(reverse("project_reopen", args=[proj.pk]))
+        self.assertRedirects(response, reverse("project_detail", args=[proj.pk]))
+
+    def test_you_cannot_reopen_someone_elses_project(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Project.objects.create(
+            user=stranger, name="Theirs", status=ProjectStatus.ARCHIVED
+        )
+        response = self.client.post(reverse("project_reopen", args=[theirs.pk]))
+        self.assertEqual(response.status_code, 404)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.status, ProjectStatus.ARCHIVED)
+
+
 class StockLedgerTests(BaseCase):
     """Every change to qty_owned has to say where it came from."""
 

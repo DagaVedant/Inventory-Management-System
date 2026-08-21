@@ -23,6 +23,9 @@
   {% if project.is_active and lines %}
     <a href="{% url 'project_teardown' project.pk %}" role="button">Tear down</a>
   {% endif %}
+  {% if not project.is_active %}
+    <a href="{% url 'project_reopen' project.pk %}" role="button">Reopen</a>
+  {% endif %}
   <a href="{% url 'project_update' project.pk %}" role="button" class="secondary">Edit</a>
   <a href="{% url 'project_list' %}" role="button" class="secondary outline">All projects</a>
   <span style="margin-left:auto">
