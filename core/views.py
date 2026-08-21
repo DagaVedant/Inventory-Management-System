@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, connection, transaction
-from django.db.models import Count, F, ProtectedError, Q
+from django.db.models import Count, F, ProtectedError, Q, Sum
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -27,7 +27,7 @@ from .forms import (
     SignupForm,
     TeardownFormSet,
 )
-from .models import Part, Project, ProjectPart
+from .models import Part, Project, ProjectPart, ProjectStatus
 
 # ----------------------------------------------------------------- accounts
 
@@ -92,6 +92,52 @@ def healthz(request):
     return JsonResponse({"status": "ok"})
 
 
+@login_required
+def dashboard(request):
+    """What's on the bench, what you need to buy, what you're nearly out of."""
+    user = request.user
+
+    active = list(
+        Project.objects.filter(user=user, status=ProjectStatus.ACTIVE)
+        .annotate(n_lines=Count("lines"))
+        .order_by("-created_at")
+    )
+    for project in active:
+        lines = project.lines.all()
+        project.held_count = sum(line.remaining for line in lines)
+        project.short_count = sum(line.short for line in lines)
+
+    # One row per part you're short of, totalled across every live build -
+    # you buy per part, not per project.
+    shortfall = (
+        ProjectPart.objects.filter(
+            project__user=user, project__status=ProjectStatus.ACTIVE
+        )
+        .values("part_id", "part__name", "part__value")
+        .annotate(short=Sum(F("qty_wanted") - F("qty_allocated")))
+        .filter(short__gt=0)
+        .order_by("-short", "part__name")
+    )
+
+    parts = Part.objects.filter(user=user).with_availability()
+    running_low = parts.order_by("available", "name")[:8]
+
+    return render(
+        request,
+        "core/dashboard.html",
+        {
+            "active": active,
+            "shortfall": shortfall,
+            "running_low": running_low,
+            "total_parts": parts.count(),
+            "total_short": sum(row["short"] for row in shortfall),
+            "archived_count": Project.objects.filter(
+                user=user, status=ProjectStatus.ARCHIVED
+            ).count(),
+        },
+    )
+
+
 class OwnedMixin(LoginRequiredMixin):
     """Every query in this app is scoped to whoever is logged in."""
 
@@ -108,8 +154,29 @@ class PartListView(OwnedMixin, ListView):
     context_object_name = "parts"
     paginate_by = 100
 
+    # Whitelisted so a sort parameter can never reach order_by() unchecked.
+    # key -> (column heading, field or annotation to sort on, right-aligned)
+    SORTABLE = {
+        "name": ("Name", "name", False),
+        "value": ("Value", "value", False),
+        "package": ("Package", "package", False),
+        "owned": ("Owned", "qty_owned", True),
+        "held": ("Held", "held", True),
+        "available": ("Available", "available", True),
+    }
+
+    def sort_key(self):
+        """(key, descending), falling back to name ascending."""
+        raw = self.request.GET.get("sort", "name")
+        descending = raw.startswith("-")
+        key = raw.lstrip("-")
+        if key not in self.SORTABLE:
+            return "name", False
+        return key, descending
+
     def get_queryset(self):
-        qs = super().get_queryset().with_availability().order_by("name")
+        qs = super().get_queryset().with_availability()
+
         query = self.request.GET.get("q", "").strip()
         if query:
             qs = qs.filter(
@@ -119,10 +186,40 @@ class PartListView(OwnedMixin, ListView):
                 | Q(tags__icontains=query)
                 | Q(notes__icontains=query)
             )
-        return qs
+
+        key, descending = self.sort_key()
+        field = self.SORTABLE[key][1]
+        # Name as a tiebreak so paging is stable when the sort column ties,
+        # which it will constantly on held and available.
+        return qs.order_by(f"-{field}" if descending else field, "name")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        key, descending = self.sort_key()
+
+        columns = []
+        for candidate, (label, _, numeric) in self.SORTABLE.items():
+            params = self.request.GET.copy()
+            params.pop("page", None)
+            # Clicking the column you're already on flips the direction.
+            params["sort"] = (
+                f"-{candidate}" if candidate == key and not descending else candidate
+            )
+            columns.append(
+                {
+                    "label": label,
+                    "url": f"?{params.urlencode()}",
+                    "active": candidate == key,
+                    "descending": candidate == key and descending,
+                    "numeric": numeric,
+                }
+            )
+
+        page_params = self.request.GET.copy()
+        page_params.pop("page", None)
+
+        context["columns"] = columns
+        context["page_params"] = page_params.urlencode()
         context["query"] = self.request.GET.get("q", "")
         context["total_parts"] = Part.objects.filter(user=self.request.user).count()
         return context
@@ -334,9 +431,16 @@ def project_detail(request, pk):
             form = AllocationForm(request.POST, project=project, lock=True)
             if form.is_valid():
                 line = form.save()
-                messages.success(
-                    request, f"Allocated {line.qty_allocated} × {line.part}."
-                )
+                if line.short:
+                    messages.warning(
+                        request,
+                        f"{line.part}: took {line.qty_allocated} of "
+                        f"{line.qty_wanted}. {line.short} still to buy.",
+                    )
+                else:
+                    messages.success(
+                        request, f"Allocated {line.qty_allocated} × {line.part}."
+                    )
                 return redirect("project_detail", pk=project.pk)
     else:
         form = AllocationForm(project=project)
@@ -349,6 +453,7 @@ def project_detail(request, pk):
             "lines": lines,
             "form": form,
             "total_held": sum(line.remaining for line in lines),
+            "total_short": sum(line.short for line in lines),
             "summary": project.teardown_summary() if not project.is_active else None,
         },
     )

@@ -36,7 +36,8 @@
 
   {% if user.is_authenticated %}
   <nav class="topbar">
-    <strong><a href="{% url 'part_list' %}">Inventory</a></strong>
+    <strong><a href="{% url 'dashboard' %}">Inventory</a></strong>
+    <a href="{% url 'dashboard' %}">Bench</a>
     <a href="{% url 'part_list' %}">Parts</a>
     <a href="{% url 'project_list' %}">Projects</a>
     <span class="spacer"></span>

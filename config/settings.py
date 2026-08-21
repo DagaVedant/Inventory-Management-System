@@ -206,7 +206,7 @@ SIGNUP_CODE = os.environ.get("SIGNUP_CODE", "")
 
 # Auth routing for the built-in login/logout views.
 LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "part_list"
+LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
 

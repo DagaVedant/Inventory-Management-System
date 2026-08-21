@@ -76,10 +76,28 @@ class ConstraintTests(BaseCase):
                 project=proj, part=p, qty_allocated=1, qty_returned=5
             )
 
-    def test_allocation_must_be_positive(self):
+    def test_a_line_must_want_something(self):
         p, proj = self.part(), self.project()
         with self.assertRaises(IntegrityError), transaction.atomic():
-            ProjectPart.objects.create(project=proj, part=p, qty_allocated=0)
+            ProjectPart.objects.create(
+                project=proj, part=p, qty_wanted=0, qty_allocated=0
+            )
+
+    def test_allocating_nothing_is_fine_when_you_wanted_something(self):
+        """A pure shortfall line: you need three, you have none."""
+        p, proj = self.part(qty=0), self.project()
+        line = ProjectPart.objects.create(
+            project=proj, part=p, qty_wanted=3, qty_allocated=0
+        )
+        self.assertEqual(line.short, 3)
+        self.assertEqual(p.compute_held(), 0)
+
+    def test_cannot_allocate_more_than_was_wanted(self):
+        p, proj = self.part(), self.project()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            ProjectPart.objects.create(
+                project=proj, part=p, qty_wanted=2, qty_allocated=5
+            )
 
     def test_one_line_per_part_per_project(self):
         p, proj = self.part(), self.project()
@@ -349,33 +367,61 @@ class AllocationViewTests(BaseCase):
         self.proj = self.project()
         self.url = reverse("project_detail", args=[self.proj.pk])
 
+    def allocate(self, qty, part=None):
+        return self.client.post(
+            self.url,
+            {"part": (part or self.p).pk, "qty_wanted": qty, "note": ""},
+        )
+
     def test_allocating_reduces_available_but_not_owned(self):
-        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 4, "note": ""})
+        self.allocate(4)
         self.p.refresh_from_db()
         self.assertEqual(self.p.qty_owned, 10)
         self.assertEqual(self.p.compute_available(), 6)
+        self.assertEqual(self.proj.lines.first().short, 0)
 
-    def test_cannot_allocate_more_than_available(self):
-        response = self.client.post(
-            self.url, {"part": self.p.pk, "qty_allocated": 11, "note": ""}
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "available")
-        self.assertEqual(self.proj.lines.count(), 0)
+    def test_asking_for_more_than_exists_takes_what_there_is(self):
+        self.allocate(14)
+        line = self.proj.lines.first()
+        self.assertEqual(line.qty_wanted, 14)
+        self.assertEqual(line.qty_allocated, 10)
+        self.assertEqual(line.short, 4)
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.compute_available(), 0)
+
+    def test_a_part_you_have_none_of_is_pure_shortfall(self):
+        empty = self.part("Nothing left", qty=0)
+        self.allocate(3, part=empty)
+        line = self.proj.lines.get(part=empty)
+        self.assertEqual(line.qty_allocated, 0)
+        self.assertEqual(line.short, 3)
 
     def test_allocating_the_same_part_twice_tops_up_the_line(self):
-        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 2, "note": ""})
-        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 3, "note": ""})
+        self.allocate(2)
+        self.allocate(3)
         self.assertEqual(self.proj.lines.count(), 1)
-        self.assertEqual(self.proj.lines.first().qty_allocated, 5)
+        line = self.proj.lines.first()
+        self.assertEqual(line.qty_wanted, 5)
+        self.assertEqual(line.qty_allocated, 5)
 
-    def test_topping_up_still_respects_availability(self):
-        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 8, "note": ""})
-        response = self.client.post(
-            self.url, {"part": self.p.pk, "qty_allocated": 5, "note": ""}
+    def test_topping_up_past_what_exists_records_the_rest_as_short(self):
+        self.allocate(8)
+        self.allocate(5)
+        line = self.proj.lines.first()
+        self.assertEqual(line.qty_wanted, 13)
+        self.assertEqual(line.qty_allocated, 10)
+        self.assertEqual(line.short, 3)
+
+    def test_another_project_cannot_take_what_this_one_holds(self):
+        self.allocate(10)
+        other = self.project("Second build")
+        self.client.post(
+            reverse("project_detail", args=[other.pk]),
+            {"part": self.p.pk, "qty_wanted": 4, "note": ""},
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.proj.lines.first().qty_allocated, 8)
+        line = other.lines.first()
+        self.assertEqual(line.qty_allocated, 0)
+        self.assertEqual(line.short, 4)
 
     def test_returning_early_frees_parts_without_teardown(self):
         line = ProjectPart.objects.create(
@@ -416,14 +462,14 @@ class AllocationViewTests(BaseCase):
     def test_cannot_allocate_to_an_archived_project(self):
         self.proj.status = ProjectStatus.ARCHIVED
         self.proj.save()
-        self.client.post(self.url, {"part": self.p.pk, "qty_allocated": 1, "note": ""})
+        self.allocate(1)
         self.assertEqual(self.proj.lines.count(), 0)
 
     def test_part_picker_only_offers_your_own_parts(self):
         stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
         theirs = Part.objects.create(user=stranger, name="Not yours", qty_owned=5)
         response = self.client.post(
-            self.url, {"part": theirs.pk, "qty_allocated": 1, "note": ""}
+            self.url, {"part": theirs.pk, "qty_wanted": 1, "note": ""}
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.proj.lines.count(), 0)
@@ -784,6 +830,128 @@ class AddStockTests(BaseCase):
         self.assertEqual(response.status_code, 404)
         theirs.refresh_from_db()
         self.assertEqual(theirs.qty_owned, 1)
+
+
+class SortingTests(BaseCase):
+    def setUp(self):
+        super().setUp()
+        # Deliberately not in name order, so a passing test means the sort ran.
+        self.cheap = self.part("Zener diode", qty=100)
+        self.scarce = self.part("Arduino Nano", qty=3)
+        self.middling = self.part("MPU-6050", qty=20)
+        # Every Nano is committed, so it should sort first by availability.
+        ProjectPart.objects.create(
+            project=self.project(), part=self.scarce, qty_allocated=3
+        )
+
+    def names(self, response):
+        return [p.name for p in response.context["parts"]]
+
+    def test_defaults_to_name_ascending(self):
+        response = self.client.get(reverse("part_list"))
+        self.assertEqual(self.names(response), sorted(self.names(response)))
+
+    def test_sorting_by_availability_finds_what_you_are_out_of(self):
+        response = self.client.get(reverse("part_list"), {"sort": "available"})
+        self.assertEqual(self.names(response)[0], "Arduino Nano")
+
+    def test_direction_can_be_reversed(self):
+        response = self.client.get(reverse("part_list"), {"sort": "-available"})
+        self.assertEqual(self.names(response)[0], "Zener diode")
+
+    def test_sorting_by_owned(self):
+        response = self.client.get(reverse("part_list"), {"sort": "owned"})
+        self.assertEqual([p.qty_owned for p in response.context["parts"]], [3, 20, 100])
+
+    def test_an_unknown_sort_falls_back_instead_of_erroring(self):
+        response = self.client.get(reverse("part_list"), {"sort": "; DROP TABLE"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.names(response), sorted(self.names(response)))
+
+    def test_headers_toggle_the_direction_you_are_already_on(self):
+        response = self.client.get(reverse("part_list"), {"sort": "available"})
+        columns = {c["label"]: c for c in response.context["columns"]}
+        self.assertTrue(columns["Available"]["active"])
+        self.assertFalse(columns["Available"]["descending"])
+        self.assertIn("sort=-available", columns["Available"]["url"])
+
+    def test_sorting_keeps_the_search_you_typed(self):
+        response = self.client.get(
+            reverse("part_list"), {"q": "Nano", "sort": "available"}
+        )
+        self.assertEqual(self.names(response), ["Arduino Nano"])
+        columns = {c["label"]: c for c in response.context["columns"]}
+        self.assertIn("q=Nano", columns["Owned"]["url"])
+
+
+class DashboardTests(BaseCase):
+    url = reverse_lazy("dashboard")
+
+    def test_requires_login(self):
+        response = Client().get(self.url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+
+    def test_empty_account_points_at_the_importer(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("part_import"))
+
+    def test_lists_whats_on_the_bench_with_held_counts(self):
+        p = self.part(qty=10)
+        live = self.project("On the bench")
+        ProjectPart.objects.create(project=live, part=p, qty_allocated=4)
+        self.project("Old one", status=ProjectStatus.ARCHIVED)
+
+        response = self.client.get(self.url)
+        self.assertEqual(
+            [pr.name for pr in response.context["active"]], ["On the bench"]
+        )
+        self.assertEqual(response.context["active"][0].held_count, 4)
+        self.assertEqual(response.context["archived_count"], 1)
+
+    def test_shopping_list_totals_shortfall_across_builds(self):
+        scarce = self.part("DHT22", qty=1)
+        for name, wanted in [("Build A", 3), ("Build B", 4)]:
+            ProjectPart.objects.create(
+                project=self.project(name),
+                part=scarce,
+                qty_wanted=wanted,
+                qty_allocated=0,
+            )
+        response = self.client.get(self.url)
+        rows = list(response.context["shortfall"])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["part__name"], "DHT22")
+        self.assertEqual(rows[0]["short"], 7)
+        self.assertEqual(response.context["total_short"], 7)
+
+    def test_archived_builds_do_not_appear_on_the_shopping_list(self):
+        p = self.part(qty=0)
+        ProjectPart.objects.create(
+            project=self.project("Done", status=ProjectStatus.ARCHIVED),
+            part=p,
+            qty_wanted=5,
+            qty_allocated=0,
+        )
+        response = self.client.get(self.url)
+        self.assertEqual(list(response.context["shortfall"]), [])
+
+    def test_running_low_puts_the_scarcest_first(self):
+        self.part("Plentiful", qty=200)
+        scarce = self.part("Scarce", qty=2)
+        ProjectPart.objects.create(project=self.project(), part=scarce, qty_allocated=2)
+        response = self.client.get(self.url)
+        self.assertEqual(response.context["running_low"][0].name, "Scarce")
+        self.assertEqual(response.context["running_low"][0].available, 0)
+
+    def test_only_your_own_work_appears(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        Project.objects.create(user=stranger, name="Theirs")
+        Part.objects.create(user=stranger, name="Their part", qty_owned=5)
+        response = self.client.get(self.url)
+        self.assertEqual(list(response.context["active"]), [])
+        self.assertEqual(response.context["total_parts"], 0)
 
 
 class HealthCheckTests(TestCase):
