@@ -40,6 +40,7 @@ from .models import (
     normalise_tags,
     tag_filter,
 )
+from .throttle import forget, too_many
 
 # ----------------------------------------------------------------- accounts
 
@@ -48,10 +49,21 @@ class SignupView(CreateView):
     form_class = SignupForm
     template_name = "registration/signup.html"
 
+    BUCKET = "signup"
+    LIMIT = 5
+    WINDOW = 60 * 60
+
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             return redirect("dashboard")
         return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        # Signup is open by design, which also makes it a free way to fill
+        # someone else's database.
+        if too_many(request, self.BUCKET, self.LIMIT, self.WINDOW):
+            return render(request, "registration/throttled.html", status=429)
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
         # Deliberately not calling super(): ModelFormMixin.form_valid() insists
@@ -66,6 +78,27 @@ class SignupView(CreateView):
             "Account created. Add your first part whenever you're ready.",
         )
         return redirect("dashboard")
+
+
+class ThrottledLoginView(auth_views.LoginView):
+    """Django's login, but a wrong password costs you something.
+
+    Only failures count, so logging in ten times a day is free and guessing ten
+    passwords a minute is not.
+    """
+
+    BUCKET = "login"
+    LIMIT = 10
+    WINDOW = 5 * 60
+
+    def post(self, request, *args, **kwargs):
+        if too_many(request, self.BUCKET, self.LIMIT, self.WINDOW):
+            return render(request, "registration/throttled.html", status=429)
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        forget(self.request, self.BUCKET)
+        return super().form_valid(form)
 
 
 class GuardedPasswordResetView(auth_views.PasswordResetView):
@@ -532,7 +565,7 @@ def part_import(request):
     if request.method == "POST":
         form = BulkPartImportForm(request.POST, user=request.user)
         if form.is_valid():
-            created = form.save()
+            created, topped_up = form.save()
             StockMovement.objects.bulk_create(
                 [
                     StockMovement(
@@ -546,7 +579,12 @@ def part_import(request):
                     if part.qty_owned
                 ]
             )
-            messages.success(request, f"Added {len(created)} parts.")
+            bits = []
+            if created:
+                bits.append(f"added {len(created)} part(s)")
+            if topped_up:
+                bits.append(f"topped up {topped_up}")
+            messages.success(request, f"Import done: {' and '.join(bits)}.")
             return redirect("part_list")
     else:
         form = BulkPartImportForm(user=request.user)

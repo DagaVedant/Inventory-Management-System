@@ -1,0 +1,13 @@
+{% extends "core/base.html" %}
+{% block title %}Too many attempts{% endblock %}
+
+{% block content %}
+<div style="max-width:24rem; margin:3rem auto;">
+  <h1>Too many attempts</h1>
+  <p>That's more tries than seems reasonable in a short space of time, so
+     they're on hold for a few minutes.</p>
+  <p class="muted">If it was you and you've forgotten the password, wait it out
+     and then try again. Nothing is locked permanently.</p>
+  <p><a href="{% url 'login' %}" role="button">Back to log in</a></p>
+</div>
+{% endblock %}

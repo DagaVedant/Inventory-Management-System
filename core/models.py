@@ -535,7 +535,7 @@ class ProjectPart(models.Model):
         related_name="allocations",
     )
     qty_wanted = models.PositiveIntegerField(
-        default=1,
+        default=0,
         help_text="How many this build needs.",
     )
     qty_allocated = models.PositiveIntegerField(
@@ -580,18 +580,27 @@ class ProjectPart(models.Model):
             ),
         ]
 
-    def __init__(self, *args, **kwargs):
-        # Building a line with only an allocation means it got everything it
-        # asked for, which is the common case and reads better than making
-        # every caller repeat the number twice. Keyword-only on purpose:
-        # Django loads rows from the database positionally, and that path must
-        # keep whatever is actually stored.
-        if "qty_allocated" in kwargs and "qty_wanted" not in kwargs:
-            kwargs["qty_wanted"] = kwargs["qty_allocated"]
-        super().__init__(*args, **kwargs)
-
     def __str__(self):
         return f"{self.qty_allocated} × {self.part} in {self.project}"
+
+    def save(self, *args, **kwargs):
+        self.apply_defaults()
+        super().save(*args, **kwargs)
+
+    def apply_defaults(self):
+        """A new line with only an allocation wanted exactly that much.
+
+        Kept out of __init__: mutating kwargs during construction is an odd
+        place to hide a rule, and it misses anyone who builds the object and
+        then assigns attributes. Called from both clean() and save() so
+        validating an unsaved line sees exactly what saving it would write.
+
+        Only on create, and only when nothing was asked for, so an explicit
+        qty_wanted is never overwritten and a shortfall line that got nothing
+        keeps the number it wanted.
+        """
+        if self._state.adding and not self.qty_wanted:
+            self.qty_wanted = self.qty_allocated
 
     @property
     def accounted(self):
@@ -619,10 +628,15 @@ class ProjectPart(models.Model):
     def clean(self):
         """You cannot allocate parts you do not have.
 
+        Defaults first, so full_clean() on an unsaved line judges the same
+        values save() would store rather than a half-built row.
+
         `available` for this line means qty_owned minus what *other* active
         projects are holding - a line must not count against itself, or editing
         an existing allocation would always look like an over-allocation.
         """
+        self.apply_defaults()
+
         if not self.part_id:
             return
 

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
 from django.test import Client, TestCase, override_settings
@@ -21,8 +22,22 @@ from .models import (
 User = get_user_model()
 
 
-class BaseCase(TestCase):
+class ClearsThrottle:
+    """The rate limit is cache-backed and the cache outlives a test method.
+
+    Without this, a class that logs in or signs up more than a handful of times
+    throttles itself and fails for reasons that have nothing to do with what it
+    is testing.
+    """
+
     def setUp(self):
+        cache.clear()
+        super().setUp()
+
+
+class BaseCase(ClearsThrottle, TestCase):
+    def setUp(self):
+        super().setUp()
         self.user = User.objects.create_superuser("owner", "o@example.com", "pw12345!")
         self.client = Client()
         self.client.force_login(self.user)
@@ -242,7 +257,7 @@ class TeardownTests(BaseCase):
         self.assertEqual(self.proj.status, ProjectStatus.ACTIVE)
 
 
-class ScopingTests(TestCase):
+class ScopingTests(ClearsThrottle, TestCase):
     def test_users_cannot_touch_each_others_projects(self):
         alice = User.objects.create_superuser("alice", "a@e.com", "pw12345!")
         bob = User.objects.create_user("bob", "b@e.com", "pw12345!", is_staff=True)
@@ -556,7 +571,7 @@ class TeardownViewTests(BaseCase):
         self.assertEqual(their_project.status, ProjectStatus.ACTIVE)
 
 
-class SignupTests(TestCase):
+class SignupTests(ClearsThrottle, TestCase):
     url = reverse_lazy("signup")
 
     def credentials(self, **extra):
@@ -882,6 +897,216 @@ class AddStockTests(BaseCase):
         self.assertEqual(response.status_code, 404)
         theirs.refresh_from_db()
         self.assertEqual(theirs.qty_owned, 1)
+
+
+class ImportTopUpTests(BaseCase):
+    url = reverse_lazy("part_import")
+
+    def test_without_the_box_an_existing_part_is_still_refused(self):
+        self.part("DHT22", qty=4)
+        response = self.client.post(self.url, {"text": "DHT22, 6"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tick the box")
+        self.assertEqual(Part.objects.get(name="DHT22").qty_owned, 4)
+
+    def test_with_the_box_the_quantity_is_added(self):
+        p = self.part("DHT22", qty=4)
+        response = self.client.post(self.url, {"text": "DHT22, 6", "top_up": "on"})
+        self.assertRedirects(response, reverse("part_list"))
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 10)
+        self.assertEqual(Part.objects.filter(user=self.user).count(), 1)
+
+    def test_a_top_up_lands_in_the_ledger_as_a_delivery(self):
+        p = self.part("DHT22", qty=4)
+        self.client.post(self.url, {"text": "DHT22, 6", "top_up": "on"})
+        movement = p.movements.first()
+        self.assertEqual(movement.reason, MovementReason.PURCHASE)
+        self.assertEqual(movement.delta, 6)
+
+    def test_a_top_up_clears_the_shopping_list(self):
+        p = self.part("DHT22", qty=0)
+        Part.objects.filter(pk=p.pk).update(qty_to_buy=6)
+        self.client.post(self.url, {"text": "DHT22, 6", "top_up": "on"})
+        p.refresh_from_db()
+        self.assertEqual(p.qty_to_buy, 0)
+
+    def test_one_paste_can_create_and_top_up_at_once(self):
+        self.part("DHT22", qty=4)
+        response = self.client.post(
+            self.url, {"text": "DHT22, 6\nBMP280, 3", "top_up": "on"}
+        )
+        self.assertRedirects(response, reverse("part_list"))
+        self.assertEqual(Part.objects.get(name="DHT22").qty_owned, 10)
+        self.assertEqual(Part.objects.get(name="BMP280").qty_owned, 3)
+
+    def test_a_near_duplicate_tops_up_the_part_it_matches(self):
+        p = self.part("Resistor", qty=100, value="10k")
+        self.client.post(self.url, {"text": "resistor, 50, 10 K", "top_up": "on"})
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 150)
+        self.assertEqual(Part.objects.filter(user=self.user).count(), 1)
+
+
+class ImportLimitsTests(BaseCase):
+    """Over-long fields used to be cut down without saying so."""
+
+    url = reverse_lazy("part_import")
+
+    def test_an_over_long_value_is_reported_not_truncated(self):
+        response = self.client.post(self.url, {"text": f"Thing, 5, {'x' * 60}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "value too long")
+        self.assertEqual(Part.objects.filter(user=self.user).count(), 0)
+
+    def test_an_over_long_package_is_reported(self):
+        response = self.client.post(self.url, {"text": f"Thing, 5, 10k, {'x' * 60}"})
+        self.assertContains(response, "package too long")
+
+    def test_over_long_tags_are_reported(self):
+        tags = ", ".join(f"tag{i}" for i in range(40))
+        response = self.client.post(self.url, {"text": f"Thing, 5, 10k, DIP, {tags}"})
+        self.assertContains(response, "tags too long")
+
+    def test_the_line_number_is_given(self):
+        response = self.client.post(self.url, {"text": f"Fine, 1\nBad, 5, {'x' * 60}"})
+        self.assertContains(response, "Line 2")
+
+
+class BackupTests(BaseCase):
+    def test_the_dump_carries_parts_projects_and_history(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        p = self.part(qty=10)
+        proj = self.project()
+        ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        p.receive(5)
+
+        out = StringIO()
+        call_command("backup", stdout=out, to_stdout=True)
+
+        import json
+
+        models = {row["model"] for row in json.loads(out.getvalue())}
+        for expected in [
+            "core.part",
+            "core.project",
+            "core.projectpart",
+            "core.stockmovement",
+            "auth.user",
+        ]:
+            with self.subTest(model=expected):
+                self.assertIn(expected, models)
+
+
+class DerivedDefaultTests(BaseCase):
+    """qty_wanted fills itself in, and it has to do so consistently."""
+
+    def test_a_line_with_only_an_allocation_wanted_that_much(self):
+        p, proj = self.part(), self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        self.assertEqual(line.qty_wanted, 4)
+        self.assertEqual(line.short, 0)
+
+    def test_an_explicit_want_is_never_overwritten(self):
+        p, proj = self.part(), self.project()
+        line = ProjectPart.objects.create(
+            project=proj, part=p, qty_wanted=9, qty_allocated=4
+        )
+        self.assertEqual(line.qty_wanted, 9)
+        self.assertEqual(line.short, 5)
+
+    def test_it_works_when_attributes_are_assigned_after_construction(self):
+        """The old version mutated kwargs, so this path missed out entirely."""
+        p, proj = self.part(), self.project()
+        line = ProjectPart(project=proj, part=p)
+        line.qty_allocated = 6
+        line.save()
+        self.assertEqual(line.qty_wanted, 6)
+
+    def test_validating_an_unsaved_line_sees_what_saving_would_write(self):
+        p, proj = self.part(), self.project()
+        ProjectPart(project=proj, part=p, qty_allocated=5).full_clean()
+
+    def test_the_default_only_applies_on_create(self):
+        p, proj = self.part(), self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        line.qty_allocated = 2
+        line.save()
+        line.refresh_from_db()
+        self.assertEqual(line.qty_wanted, 4)
+
+
+class ThrottleTests(ClearsThrottle, TestCase):
+    """Signup is open and login accepts anything. Slow both down."""
+
+    def setUp(self):
+        super().setUp()
+        User.objects.create_user("owner", "o@example.com", "pw12345!")
+
+    def wrong_password(self):
+        return self.client.post(
+            reverse("login"), {"username": "owner", "password": "nope"}
+        )
+
+    def test_repeated_wrong_passwords_are_eventually_refused(self):
+        for _ in range(10):
+            self.assertEqual(self.wrong_password().status_code, 200)
+        response = self.wrong_password()
+        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Too many attempts", status_code=429)
+
+    def test_logging_in_successfully_clears_the_count(self):
+        for _ in range(9):
+            self.wrong_password()
+
+        self.client.post(
+            reverse("login"), {"username": "owner", "password": "pw12345!"}
+        )
+        self.client.logout()
+
+        # One typo months later shouldn't land on a nearly full counter.
+        for _ in range(10):
+            self.assertEqual(self.wrong_password().status_code, 200)
+
+    def test_a_correct_password_still_works_below_the_limit(self):
+        self.wrong_password()
+        response = self.client.post(
+            reverse("login"), {"username": "owner", "password": "pw12345!"}
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_signups_are_limited_too(self):
+        for i in range(5):
+            response = self.client.post(
+                reverse("signup"),
+                {
+                    "username": f"newcomer{i}",
+                    "password1": "a-long-enough-passphrase",
+                    "password2": "a-long-enough-passphrase",
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+            self.client.logout()
+
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "onetoomany",
+                "password1": "a-long-enough-passphrase",
+                "password2": "a-long-enough-passphrase",
+            },
+        )
+        self.assertEqual(response.status_code, 429)
+        self.assertFalse(User.objects.filter(username="onetoomany").exists())
+
+    def test_the_pages_themselves_are_never_blocked(self):
+        for _ in range(15):
+            self.wrong_password()
+        self.assertEqual(self.client.get(reverse("login")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("signup")).status_code, 200)
 
 
 class TagTests(BaseCase):
@@ -1692,7 +1917,7 @@ class DashboardTests(BaseCase):
         self.assertEqual(response.context["total_parts"], 0)
 
 
-class GuideTests(TestCase):
+class GuideTests(ClearsThrottle, TestCase):
     def test_readable_without_an_account(self):
         response = Client().get(reverse("guide"))
         self.assertEqual(response.status_code, 200)
@@ -1745,7 +1970,7 @@ class HealthCheckTests(TestCase):
         self.assertNotIn("Location", response.headers)
 
 
-class PasswordResetTests(TestCase):
+class PasswordResetTests(ClearsThrottle, TestCase):
     """With no mail server configured, say so instead of pretending."""
 
     def test_reset_page_admits_it_cannot_send_mail(self):
@@ -1767,10 +1992,11 @@ class PasswordResetTests(TestCase):
 
 
 @override_settings(EMAIL_CONFIGURED=True)
-class PasswordResetWithMailTests(TestCase):
+class PasswordResetWithMailTests(ClearsThrottle, TestCase):
     """The real flow, once EMAIL_HOST is set."""
 
     def setUp(self):
+        super().setUp()
         self.user = User.objects.create_user("owner", "o@example.com", "pw12345!")
 
     def test_login_page_offers_the_link_once_mail_works(self):
