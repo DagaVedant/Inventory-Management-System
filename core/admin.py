@@ -74,7 +74,7 @@ class ProjectPartInline(admin.TabularInline):
     @admin.display(description="Still held")
     def remaining_display(self, obj):
         if obj is None or obj.pk is None:
-            return "—"
+            return "-"
         return obj.remaining
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
@@ -109,7 +109,7 @@ class ProjectAdmin(OwnedAdminMixin, admin.ModelAdmin):
     @admin.display(description="")
     def teardown_link(self, obj):
         if obj.status != ProjectStatus.ACTIVE:
-            return "—"
+            return "-"
         # Links out to the real teardown page rather than reimplementing it
         # here. One screen, one implementation.
         url = reverse("project_teardown", args=[obj.pk])

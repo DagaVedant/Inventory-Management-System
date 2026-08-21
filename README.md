@@ -5,7 +5,7 @@ A parts inventory for people who build on perfboard.
 Every inventory tool ever written assumes stock leaves and never comes back,
 because they were all designed for warehouses. That is not how a hobby bench
 works. You build something, it holds your parts hostage for three weeks, you
-tear it down, and most of them come back — minus the ones soldered into the
+tear it down, and most of them come back, minus the ones soldered into the
 board, minus the ones you let the smoke out of.
 
 So parts here don't get *consumed*. They get **held**.
@@ -13,7 +13,7 @@ So parts here don't get *consumed*. They get **held**.
 ## The idea
 
 A project doesn't use parts up. It borrows them. Allocating a DHT22 to a build
-doesn't change how many you own — it changes how many you can reach for.
+doesn't change how many you own. It changes how many you can reach for.
 
 When you tear the project down, you go through the parts list and say what
 became of each one:
@@ -57,7 +57,7 @@ teardown work without any special-casing.
 | tear down: 2 soldered, 1 broken | 7 | 0 | **7** |
 
 Two are inside a finished board forever, one is dead, seven are loose. Note
-that soldered and broken don't move `available` — those parts were already
+that soldered and broken don't move `available`, because those parts were already
 held, so leaving both numbers cancels out. Only returning gives you anything
 back.
 
@@ -78,7 +78,7 @@ project.
 
 ### What the database enforces
 
-Not just the forms — these are `CheckConstraint`s and a `UniqueConstraint`, so
+Not just the forms. These are `CheckConstraint`s and a `UniqueConstraint`, so
 they hold even if a future view has a bug in it:
 
 - one line per part per project
@@ -88,7 +88,7 @@ they hold even if a future view has a bug in it:
 
 And in application code: you can't allocate more than is available, you can't
 edit `qty_owned` below what's currently held, and a teardown must account for
-every part exactly — no leftovers. A teardown that fails validation changes
+every part exactly, with no leftovers. A teardown that fails validation changes
 nothing at all, because the whole thing runs in one transaction.
 
 ## Running it locally
@@ -99,7 +99,7 @@ venv\Scripts\Activate.ps1          # Windows; source venv/bin/activate elsewhere
 pip install -r requirements.txt
 ```
 
-Create a `.env` next to `manage.py` — see `.env.sample`:
+Create a `.env` next to `manage.py`, modelled on `.env.sample`:
 
 ```
 SECRET_KEY=anything-for-local-use
@@ -145,14 +145,14 @@ several directions.
 `/` is a dashboard: what's on the bench with held and short counts, a shopping
 list totalling shortfall per part across every live build, and the parts you're
 closest to running out of. The parts table itself lives at `/parts/` and sorts
-on any column — availability ascending answers "what am I nearly out of".
+on any column, and availability ascending answers "what am I nearly out of".
 
 ## Getting a bin in
 
 Entering a hundred parts one form at a time is how these tools die with an
 empty database, so there are two paths.
 
-**Paste a list** at `/parts/import/` — one part per line:
+**Paste a list** at `/parts/import/`, one part per line:
 
 ```
 name, quantity, value, package, tag, tag, ...
@@ -178,7 +178,7 @@ back in the name field so a pile goes in without touching the mouse.
 
 Click any part name for its own page: how many are owned, held and available,
 which projects are holding them right now, and every finished build that
-consumed some — with what was returned, soldered in and broken. That answers
+consumed some, with what was returned, soldered in and broken. That answers
 "where did my 10ks go", which the data always supported and nothing used to
 show you.
 
@@ -190,7 +190,7 @@ a question of which one you meant.
 ## Accounts
 
 Anyone with the URL can sign up at `/accounts/signup/`. To close that, set
-`SIGNUP_CODE` to any string in the environment — the signup form then asks for
+`SIGNUP_CODE` to any string in the environment, and the signup form then asks for
 it and rejects anything else. No deploy needed; it's read at request time.
 
 ### Password reset
@@ -237,7 +237,7 @@ Every push and pull request runs `.github/workflows/ci.yml`: lint, format check,
 Django system checks, a missing-migrations check, the full test suite, and
 `check --deploy` with production settings. That last one means a security
 setting can't quietly regress, and the migration check catches a model changed
-without `makemigrations` — which deploys fine and then fails against the real
+without `makemigrations`, which deploys fine and then fails against the real
 database.
 
 ## Deployment
@@ -263,7 +263,7 @@ an internal probe over plain HTTP doesn't get a 301 and read as a failure.
 
 With `DEBUG=False` the app forces HTTPS, marks session and CSRF cookies secure,
 and sends a one-hour HSTS header. `SECURE_PROXY_SSL_HEADER` is set alongside
-the HTTPS redirect and is not optional — Railway terminates TLS at its edge and
+the HTTPS redirect and is not optional, because Railway terminates TLS at its edge and
 forwards over plain HTTP, so without that header Django would think every
 request was insecure and redirect forever.
 
@@ -304,4 +304,4 @@ config/          settings, urls, wsgi
 
 ## License
 
-MIT — see `LICENSE`.
+MIT. See `LICENSE`.
