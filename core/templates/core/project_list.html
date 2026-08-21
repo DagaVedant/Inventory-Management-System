@@ -51,6 +51,7 @@
       <th scope="col">Name</th>
       <th scope="col" class="num">Parts</th>
       <th scope="col">Torn down</th>
+      <th scope="col"></th>
     </tr>
   </thead>
   <tbody>
@@ -59,6 +60,10 @@
       <th scope="row"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></th>
       <td class="num">{{ project.n_lines }}</td>
       <td class="muted">{{ project.archived_at|date:"j M Y" }}</td>
+      <td style="white-space:nowrap">
+        <a href="{% url 'project_reopen' project.pk %}" role="button"
+           class="secondary outline btn-sm">Reopen</a>
+      </td>
     </tr>
     {% endfor %}
   </tbody>

@@ -246,7 +246,17 @@ class Project(models.Model):
             line.qty_returned += returned
             line.qty_soldered += soldered
             line.qty_broken += broken
-            line.save(update_fields=["qty_returned", "qty_soldered", "qty_broken"])
+            # Remembered so reopen() can unpick this teardown without also
+            # undoing parts you handed back weeks earlier.
+            line.teardown_returned = returned
+            line.save(
+                update_fields=[
+                    "qty_returned",
+                    "qty_soldered",
+                    "qty_broken",
+                    "teardown_returned",
+                ]
+            )
 
             lost = soldered + broken
             if lost:
@@ -261,6 +271,51 @@ class Project(models.Model):
 
         self.status = ProjectStatus.ARCHIVED
         self.archived_at = timezone.now()
+        self.save(update_fields=["status", "archived_at"])
+
+    @transaction.atomic
+    def reopen(self):
+        """Undo a teardown and put the project back on the bench.
+
+        Teardown is the one operation here that destroys information, and it is
+        two clicks from a list page. Being unable to take it back made a
+        mis-click permanent, recoverable only by editing every affected part
+        from memory.
+
+        Soldered and broken are reversed in full, because nothing but a
+        teardown ever sets them. Returns are only reversed as far as this
+        teardown contributed, so parts handed back mid-build stay handed back.
+        """
+        if self.is_active:
+            raise ValidationError("This project is already on the bench.")
+
+        for line in self.lines.select_related("part"):
+            lost = line.qty_soldered + line.qty_broken
+
+            if line.teardown_returned is not None:
+                line.qty_returned -= line.teardown_returned
+                line.teardown_returned = None
+            line.qty_soldered = 0
+            line.qty_broken = 0
+            line.save(
+                update_fields=[
+                    "qty_returned",
+                    "qty_soldered",
+                    "qty_broken",
+                    "teardown_returned",
+                ]
+            )
+
+            if lost:
+                line.part.adjust_stock(
+                    lost,
+                    MovementReason.REOPEN,
+                    project=self,
+                    note="Teardown reversed.",
+                )
+
+        self.status = ProjectStatus.ACTIVE
+        self.archived_at = None
         self.save(update_fields=["status", "archived_at"])
 
     def teardown_summary(self):
@@ -332,6 +387,15 @@ class ProjectPart(models.Model):
     qty_soldered = models.PositiveIntegerField(default=0)
     qty_broken = models.PositiveIntegerField(default=0)
     note = models.TextField(blank=True)
+    teardown_returned = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "How much of qty_returned came from the teardown. Null until torn "
+            "down. Soldered and broken need no equivalent: nothing but a "
+            "teardown ever sets them."
+        ),
+    )
 
     class Meta:
         ordering = ["part__name"]

@@ -76,6 +76,18 @@ Short parts aren't held by anyone. They don't exist yet. The bench page totals
 them per part across every live build, because you buy per part, not per
 project.
 
+### Taking a teardown back
+
+Teardown is the only operation here that destroys information, and it is two
+clicks from a list page. Archived projects can be reopened: the project goes
+back on the bench and everything written off as soldered or broken returns to
+stock, recorded as its own movement so the undo is as visible as the teardown.
+
+Parts handed back *during* the build stay handed back. That needs
+`ProjectPart.teardown_returned`, because `qty_returned` mixes early returns with
+teardown returns and only the second kind should be reversed. Soldered and
+broken need no equivalent, since nothing but a teardown ever sets them.
+
 ### Where a number came from
 
 Every change to `qty_owned` writes a `StockMovement` saying what happened and
@@ -156,7 +168,7 @@ ruff check .
 ruff format --check .
 ```
 
-A hundred and thirty-one of them, mostly on the arithmetic. The invariant that soldered and
+A hundred and forty-one of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.

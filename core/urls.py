@@ -32,6 +32,11 @@ urlpatterns = [
         name="project_teardown",
     ),
     path(
+        "projects/<int:pk>/reopen/",
+        views.project_reopen,
+        name="project_reopen",
+    ),
+    path(
         "projects/<int:pk>/lines/<int:line_pk>/remove/",
         views.line_remove,
         name="line_remove",
