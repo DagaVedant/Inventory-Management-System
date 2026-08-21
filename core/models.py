@@ -203,7 +203,13 @@ class ProjectPart(models.Model):
         on_delete=models.PROTECT,
         related_name="allocations",
     )
-    qty_allocated = models.PositiveIntegerField()
+    qty_wanted = models.PositiveIntegerField(
+        default=1,
+        help_text="How many this build needs.",
+    )
+    qty_allocated = models.PositiveIntegerField(
+        help_text="How many it actually got. Less than wanted means short.",
+    )
     qty_returned = models.PositiveIntegerField(default=0)
     qty_soldered = models.PositiveIntegerField(default=0)
     qty_broken = models.PositiveIntegerField(default=0)
@@ -217,8 +223,12 @@ class ProjectPart(models.Model):
                 name="unique_part_per_project",
             ),
             models.CheckConstraint(
-                condition=Q(qty_allocated__gt=0),
-                name="allocated_is_positive",
+                condition=Q(qty_wanted__gt=0),
+                name="wanted_is_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(qty_allocated__lte=F("qty_wanted")),
+                name="allocated_not_over_wanted",
             ),
             models.CheckConstraint(
                 condition=Q(
@@ -229,6 +239,16 @@ class ProjectPart(models.Model):
                 name="accounted_not_over_allocated",
             ),
         ]
+
+    def __init__(self, *args, **kwargs):
+        # Building a line with only an allocation means it got everything it
+        # asked for, which is the common case and reads better than making
+        # every caller repeat the number twice. Keyword-only on purpose:
+        # Django loads rows from the database positionally, and that path must
+        # keep whatever is actually stored.
+        if "qty_allocated" in kwargs and "qty_wanted" not in kwargs:
+            kwargs["qty_wanted"] = kwargs["qty_allocated"]
+        super().__init__(*args, **kwargs)
 
     def __str__(self):
         return f"{self.qty_allocated} × {self.part} in {self.project}"
@@ -241,6 +261,15 @@ class ProjectPart(models.Model):
     def remaining(self):
         """Still held by the project - not yet returned, soldered or broken."""
         return self.qty_allocated - self.accounted
+
+    @property
+    def short(self):
+        """How many more this build needs than it managed to take.
+
+        Non-zero means you ran out. The parts are not held by anyone - they
+        do not exist yet, which is exactly what a shopping list is for.
+        """
+        return self.qty_wanted - self.qty_allocated
 
     @property
     def lost(self):

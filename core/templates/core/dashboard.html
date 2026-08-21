@@ -1,0 +1,123 @@
+{% extends "core/base.html" %}
+{% block title %}Bench{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>Bench</h1>
+  <p>{{ total_parts }} part{{ total_parts|pluralize }} ·
+     {{ active|length }} on the bench ·
+     {{ archived_count }} torn down</p>
+</hgroup>
+
+{% if not total_parts %}
+  <article>
+    <p><strong>Nothing in here yet.</strong></p>
+    <p class="muted">The fastest way in is to paste a list — one part per line,
+       name and quantity are all you need.</p>
+    <a href="{% url 'part_import' %}" role="button">Paste your bin in</a>
+    <a href="{% url 'part_create' %}" role="button" class="secondary">Add one at a time</a>
+  </article>
+{% endif %}
+
+<h2>On the bench</h2>
+{% if active %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Project</th>
+      <th scope="col" class="num">Parts</th>
+      <th scope="col" class="num">Held</th>
+      <th scope="col" class="num">Short</th>
+      <th scope="col"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for project in active %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a>
+      </th>
+      <td class="num muted">{{ project.n_lines }}</td>
+      <td class="num">{{ project.held_count }}</td>
+      <td class="num {% if project.short_count %}zero{% else %}muted{% endif %}">
+        {{ project.short_count }}
+      </td>
+      <td style="white-space:nowrap">
+        {% if project.n_lines %}
+          <a href="{% url 'project_teardown' project.pk %}" role="button"
+             class="secondary btn-sm">Tear down</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% else %}
+  <p class="muted">Nothing on the bench.
+     <a href="{% url 'project_create' %}">Start a project</a>.</p>
+{% endif %}
+
+<h2>Shopping list</h2>
+{% if shortfall %}
+<p class="muted">{{ total_short }} part{{ total_short|pluralize }} your live builds
+   need and you don't have.</p>
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col" class="num">Short</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in shortfall %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'part_detail' row.part_id %}">{{ row.part__name }}</a>
+        {% if row.part__value %}<span class="muted">{{ row.part__value }}</span>{% endif %}
+      </th>
+      <td class="num"><strong class="zero">{{ row.short }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% else %}
+  <p class="muted">Nothing to buy — every live build got what it asked for.</p>
+{% endif %}
+
+{% if running_low %}
+<h2>Running low</h2>
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col" class="num">Owned</th>
+      <th scope="col" class="num">Held</th>
+      <th scope="col" class="num">Available</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for part in running_low %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
+        {% if part.value %}<span class="muted">{{ part.value }}</span>{% endif %}
+      </th>
+      <td class="num muted">{{ part.qty_owned }}</td>
+      <td class="num muted">{{ part.held }}</td>
+      <td class="num {% if part.available == 0 %}zero{% endif %}">
+        <strong>{{ part.available }}</strong>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+<p class="muted"><small>Lowest availability first. Zero means every one you own
+is inside a live build.</small></p>
+{% endif %}
+{% endblock %}

@@ -22,12 +22,13 @@
 <table>
   <thead>
     <tr>
-      <th scope="col">Name</th>
-      <th scope="col">Value</th>
-      <th scope="col">Package</th>
-      <th scope="col" class="num">Owned</th>
-      <th scope="col" class="num">Held</th>
-      <th scope="col" class="num">Available</th>
+      {% for column in columns %}
+        <th scope="col" {% if column.numeric %}class="num"{% endif %}>
+          <a href="{{ column.url }}" style="text-decoration:none">
+            {{ column.label }}{% if column.active %}{% if column.descending %} ↓{% else %} ↑{% endif %}{% endif %}
+          </a>
+        </th>
+      {% endfor %}
       <th scope="col">Tags</th>
       <th scope="col"></th>
     </tr>
@@ -60,11 +61,11 @@
 {% if is_paginated %}
 <nav>
   {% if page_obj.has_previous %}
-    <a href="?q={{ query }}&page={{ page_obj.previous_page_number }}">Previous</a>
+    <a href="?{{ page_params }}&page={{ page_obj.previous_page_number }}">Previous</a>
   {% endif %}
   <span class="muted">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
   {% if page_obj.has_next %}
-    <a href="?q={{ query }}&page={{ page_obj.next_page_number }}">Next</a>
+    <a href="?{{ page_params }}&page={{ page_obj.next_page_number }}">Next</a>
   {% endif %}
 </nav>
 {% endif %}

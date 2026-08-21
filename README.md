@@ -61,13 +61,29 @@ that soldered and broken don't move `available` — those parts were already
 held, so leaving both numbers cancels out. Only returning gives you anything
 back.
 
+### When you haven't got enough
+
+Allocation doesn't refuse you. It takes what's there and records the rest as
+**short**, because running out is information rather than an error:
+
+```
+qty_wanted     what this build needs
+qty_allocated  what it actually got - never more than wanted
+short          the difference, and the reason the shopping list exists
+```
+
+Short parts aren't held by anyone. They don't exist yet. The bench page totals
+them per part across every live build, because you buy per part, not per
+project.
+
 ### What the database enforces
 
 Not just the forms — these are `CheckConstraint`s and a `UniqueConstraint`, so
 they hold even if a future view has a bug in it:
 
 - one line per part per project
-- allocations must be positive
+- a line must want something
+- `allocated` can never exceed `wanted`
 - `returned + soldered + broken` can never exceed `allocated`
 
 And in application code: you can't allocate more than is available, you can't
@@ -119,10 +135,17 @@ ruff check .
 ruff format --check .
 ```
 
-Ninety of them, mostly on the arithmetic. The invariant that soldered and
+A hundred and eight of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
+
+## The bench
+
+`/` is a dashboard: what's on the bench with held and short counts, a shopping
+list totalling shortfall per part across every live build, and the parts you're
+closest to running out of. The parts table itself lives at `/parts/` and sorts
+on any column — availability ascending answers "what am I nearly out of".
 
 ## Getting a bin in
 

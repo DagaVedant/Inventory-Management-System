@@ -215,10 +215,10 @@ class AllocationForm(forms.Form):
     """
 
     part = forms.ModelChoiceField(queryset=Part.objects.none())
-    qty_allocated = forms.IntegerField(
+    qty_wanted = forms.IntegerField(
         min_value=1,
         initial=1,
-        label="How many",
+        label="How many do you need",
         widget=forms.NumberInput(attrs={"min": 1}),
     )
     note = forms.CharField(
@@ -238,7 +238,7 @@ class AllocationForm(forms.Form):
     def clean(self):
         cleaned = super().clean()
         part = cleaned.get("part")
-        qty = cleaned.get("qty_allocated")
+        qty = cleaned.get("qty_wanted")
 
         if part is None or qty is None or self.project is None:
             return cleaned
@@ -257,18 +257,26 @@ class AllocationForm(forms.Form):
             line = ProjectPart(
                 project=self.project,
                 part=part,
-                qty_allocated=qty,
+                qty_wanted=0,
+                qty_allocated=0,
                 note=cleaned.get("note", ""),
             )
-        else:
+        elif cleaned.get("note"):
             # Already on this project - top it up rather than rejecting the
             # submission on the unique constraint.
-            line.qty_allocated += qty
-            if cleaned.get("note"):
-                line.note = cleaned["note"]
+            line.note = cleaned["note"]
+
+        # Everything this part has that isn't already spoken for by some other
+        # active project. This line's own holding doesn't count against it.
+        held_elsewhere = part.compute_held() - (line.remaining if line.pk else 0)
+        capacity = part.qty_owned - held_elsewhere
+
+        line.qty_wanted += qty
+        # Take what's there and record the rest as short, rather than refusing
+        # the whole request. Running out is information, not an error.
+        line.qty_allocated = min(line.qty_wanted, capacity + line.accounted)
 
         try:
-            # Runs the availability guard on the resulting total.
             line.full_clean(validate_unique=False, validate_constraints=False)
         except ValidationError as exc:
             raise forms.ValidationError(exc.messages) from exc

@@ -160,6 +160,17 @@ class Command(BaseCommand):
         line.qty_returned = 1
         line.save(update_fields=["qty_returned"])
 
+        # Two builds that want more than exists, so the shopping list has
+        # something on it and the shortfall columns aren't all zero.
+        for project, key, extra in [
+            (parking, "SSD1306 OLED 128x64", 2),
+            (weather, "DS18B20 temperature", 4),
+            (weather, "Screw terminal 2-way", 6),
+        ]:
+            line = project.lines.get(part=parts[key])
+            line.qty_wanted += extra
+            line.save(update_fields=["qty_wanted"])
+
         # 3. Torn down, with real losses. This is the interesting one.
         balancer = Project.objects.create(
             user=user,
@@ -216,11 +227,18 @@ class Command(BaseCommand):
             for p in Part.objects.filter(user=user).with_availability()
             if p.available == 0
         ]
+        short = sum(
+            line.short
+            for line in ProjectPart.objects.filter(
+                project__user=user, project__status="active"
+            )
+        )
         self.stdout.write(
             self.style.SUCCESS(
                 f"Seeded {username}: {len(parts)} parts, "
                 f"{Project.objects.filter(user=user).count()} projects "
                 f"(2 on the bench, 2 torn down), "
-                f"{len(committed)} part(s) fully committed."
+                f"{len(committed)} part(s) fully committed, "
+                f"{short} short across live builds."
             )
         )

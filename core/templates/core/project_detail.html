@@ -6,7 +6,8 @@
   <h1>{{ project.name }}</h1>
   <p>
     {% if project.is_active %}
-      Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}.
+      Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}{% if total_short %},
+      and <strong class="zero">{{ total_short }}</strong> short{% endif %}.
     {% else %}
       Torn down {{ project.archived_at|date:"j M Y" }}.
       {{ summary.returned|default:0 }} returned,
@@ -36,7 +37,9 @@
   <thead>
     <tr>
       <th scope="col">Part</th>
-      <th scope="col" class="num">Allocated</th>
+      <th scope="col" class="num">Needs</th>
+      <th scope="col" class="num">Got</th>
+      <th scope="col" class="num">Short</th>
       <th scope="col" class="num">Held</th>
       <th scope="col" class="num">Returned</th>
       <th scope="col" class="num">Soldered</th>
@@ -52,7 +55,9 @@
         {% if line.part.value %}<span class="muted">{{ line.part.value }}</span>{% endif %}
         {% if line.note %}<br><small class="muted">{{ line.note }}</small>{% endif %}
       </th>
+      <td class="num muted">{{ line.qty_wanted }}</td>
       <td class="num">{{ line.qty_allocated }}</td>
+      <td class="num {% if line.short %}zero{% else %}muted{% endif %}">{{ line.short }}</td>
       <td class="num"><strong>{{ line.remaining }}</strong></td>
       <td class="num muted">{{ line.qty_returned }}</td>
       <td class="num muted">{{ line.qty_soldered }}</td>
@@ -97,12 +102,14 @@ pulled. Soldered and broken are decided at teardown.</small></p>
   {{ form.non_field_errors }}
   <div class="grid">
     <label>{{ form.part.label }}{{ form.part }}{{ form.part.errors }}</label>
-    <label>{{ form.qty_allocated.label }}{{ form.qty_allocated }}{{ form.qty_allocated.errors }}</label>
+    <label>{{ form.qty_wanted.label }}{{ form.qty_wanted }}{{ form.qty_wanted.errors }}</label>
     <label>{{ form.note.label }}{{ form.note }}</label>
   </div>
   <button type="submit">Allocate</button>
 </form>
 <p class="muted"><small>Allocating takes parts out of the available pool without
-changing what you own. Adding a part that's already listed tops up its line.</small></p>
+changing what you own. If there aren't enough, it takes what's there and records
+the rest as short — those show up on your shopping list. Adding a part that's
+already listed tops up its line.</small></p>
 {% endif %}
 {% endblock %}
