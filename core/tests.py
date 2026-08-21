@@ -1946,7 +1946,9 @@ class NavigationTests(BaseCase):
     def test_the_brand_is_a_mark_not_a_link(self):
         response = self.client.get(reverse("dashboard"))
         self.assertContains(response, '<span class="brand">')
-        self.assertNotContains(response, f'<a href="{reverse("guide")}">Inventory</a>')
+        self.assertNotContains(
+            response, f'<a href="{reverse("guide")}">Inventory System</a>'
+        )
 
     def test_every_section_has_its_own_nav_entry(self):
         response = self.client.get(reverse("dashboard"))

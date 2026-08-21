@@ -46,7 +46,7 @@ class Command(BaseCommand):
         self.stdout.write(f"\nSending to {recipient}...")
 
         message = EmailMessage(
-            subject="Inventory: mail is working",
+            subject="Inventory System: mail is working",
             body=(
                 "If you're reading this, the mail configuration works and "
                 "password reset will too.\n"

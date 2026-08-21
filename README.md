@@ -1,4 +1,4 @@
-# Inventory
+# Inventory System
 
 A parts inventory for people who build on perfboard.
 
@@ -296,7 +296,7 @@ EMAIL_PORT=587
 EMAIL_HOST_USER=your-username
 EMAIL_HOST_PASSWORD=your-app-password
 EMAIL_USE_TLS=True
-DEFAULT_FROM_EMAIL=Inventory <you@yourdomain.com>
+DEFAULT_FROM_EMAIL=Inventory System <you@yourdomain.com>
 ```
 
 Then check it actually works before trusting it with a reset link:
