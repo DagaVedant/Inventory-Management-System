@@ -226,6 +226,14 @@ class WantToBuyForm(forms.Form):
 
 
 class PartForm(forms.ModelForm):
+    def __init__(self, *args, known_tags=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        # A datalist, so typing "sen" offers "sensor" instead of quietly
+        # creating a second tag one character away from the first.
+        if known_tags:
+            self.fields["tags"].widget.attrs["list"] = "known-tags"
+        self.known_tags = list(known_tags)
+
     class Meta:
         model = Part
         fields = [

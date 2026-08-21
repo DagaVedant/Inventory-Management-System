@@ -16,7 +16,13 @@
   <a href="{% url 'part_create' %}" role="button">Add part</a>
   <a href="{% url 'part_import' %}" role="button" class="secondary">Import</a>
   <a href="{% url 'part_duplicates' %}" role="button" class="secondary outline">Duplicates</a>
+  <a href="{% url 'tag_index' %}" role="button" class="secondary outline">Tags</a>
 </div>
+
+{% if tag %}
+  <p class="muted">Filtered to <span class="tag">{{ tag }}</span>
+     <a href="{% url 'part_list' %}">clear</a></p>
+{% endif %}
 
 {% if parts %}
 <figure>
@@ -48,7 +54,7 @@
         <strong>{{ part.available }}</strong>
       </td>
       <td>
-        {% for tag in part.tag_list %}<span class="tag">{{ tag }}</span>{% endfor %}
+        {% for t in part.tag_list %}<a class="tag" href="?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}
       </td>
       <td style="white-space:nowrap">
         <a href="{% url 'part_update' part.pk %}" class="btn-sm" role="button">Edit</a>

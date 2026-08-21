@@ -176,7 +176,7 @@ ruff check .
 ruff format --check .
 ```
 
-A hundred and seventy-three of them, mostly on the arithmetic. The invariant that soldered and
+A hundred and eighty-six of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
@@ -194,6 +194,18 @@ the nav goes there; **Bench** is the dashboard.
 list totalling shortfall per part across every live build, and the parts you're
 closest to running out of. The parts table itself lives at `/parts/` and sorts
 on any column, and availability ascending answers "what am I nearly out of".
+
+## Tags
+
+Tags are a comma-separated string on the part, normalised to a single ", "
+separated form on save with duplicates collapsed. That is what lets the parts
+list filter on a whole tag in SQL: a substring match would make `i2c` also
+match `i2c-pullup`.
+
+Tags are clickable everywhere, the add form autocompletes from tags already in
+use, and `/tags/` lists them with counts and renames one across every part at
+once. A part's page shows others sharing its tags. Whether any of them actually
+substitutes is a judgement the app does not make.
 
 ## Duplicates
 

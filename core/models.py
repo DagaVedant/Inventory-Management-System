@@ -9,6 +9,36 @@ from django.db.models.functions import Coalesce, Greatest
 from django.utils import timezone
 
 
+def normalise_tags(raw):
+    """One canonical spelling of a tag string.
+
+    Always ", " separated with duplicates collapsed, which is what lets the
+    parts list filter on an exact tag in SQL instead of a substring match that
+    would make "i2c" also match "i2c-pullup".
+    """
+    seen, out = set(), []
+    for tag in (raw or "").split(","):
+        tag = tag.strip()
+        if not tag or tag.casefold() in seen:
+            continue
+        seen.add(tag.casefold())
+        out.append(tag)
+    return ", ".join(out)
+
+
+def tag_filter(tag):
+    """Match one whole tag inside a normalised comma-separated string."""
+    tag = tag.strip()
+    if not tag:
+        return Q()
+    return (
+        Q(tags__iexact=tag)
+        | Q(tags__istartswith=f"{tag}, ")
+        | Q(tags__iendswith=f", {tag}")
+        | Q(tags__icontains=f", {tag}, ")
+    )
+
+
 def match_key(name, value=""):
     """A loose key for spotting the same component written two ways.
 
@@ -80,7 +110,7 @@ class Part(models.Model):
     tags = models.CharField(
         max_length=200,
         blank=True,
-        help_text="Comma separated. Also does duty as substitutes.",
+        help_text="Comma separated. Normalised on save so filtering is exact.",
     )
     qty_owned = models.PositiveIntegerField(
         default=0,
@@ -121,6 +151,7 @@ class Part(models.Model):
         writes its own opening lines.
         """
         creating = self._state.adding
+        self.tags = normalise_tags(self.tags)
         super().save(*args, **kwargs)
         if creating and self.qty_owned:
             StockMovement.objects.create(

@@ -8,6 +8,14 @@
   {% csrf_token %}
   {{ form.as_p }}
 
+  {% if form.known_tags %}
+    <datalist id="known-tags">
+      {% for tag in form.known_tags %}<option value="{{ tag }}"></option>{% endfor %}
+    </datalist>
+    <p class="muted"><small>Tags you already use will autocomplete. Keeping them
+       consistent is what makes filtering by one worth anything.</small></p>
+  {% endif %}
+
   <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
     <button type="submit">Save</button>
     {% if not object %}

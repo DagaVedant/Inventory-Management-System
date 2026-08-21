@@ -23,7 +23,7 @@
 {% endif %}
 
 {% if part.tag_list %}
-  <p>{% for tag in part.tag_list %}<span class="tag">{{ tag }}</span>{% endfor %}</p>
+  <p>{% for t in part.tag_list %}<a class="tag" href="{% url 'part_list' %}?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}</p>
 {% endif %}
 
 <div class="grid" style="margin-bottom:1.5rem;">
@@ -175,6 +175,35 @@
 {% endif %}
 {% else %}
   <p class="muted">Nothing recorded yet.</p>
+{% endif %}
+
+{% if similar %}
+<h2>Might do instead</h2>
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col">Shares</th>
+      <th scope="col" class="num">Available</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for other in similar %}
+    <tr>
+      <th scope="row"><a href="{% url 'part_detail' other.pk %}">{{ other }}</a></th>
+      <td>{% for t in other.tag_list %}<span class="tag">{{ t }}</span>{% endfor %}</td>
+      <td class="num {% if other.available == 0 %}zero{% endif %}">
+        <strong>{{ other.available }}</strong>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+<p class="muted"><small>Parts sharing a tag with this one, most available
+first. Whether any of them actually substitutes is your call, not the
+app's.</small></p>
 {% endif %}
 
 {% if part.notes %}

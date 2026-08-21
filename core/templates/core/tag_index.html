@@ -1,0 +1,65 @@
+{% extends "core/base.html" %}
+{% block title %}Tags{% endblock %}
+
+{% block content %}
+<div style="max-width:44rem">
+
+<hgroup>
+  <h1>Tags</h1>
+  <p>{{ tags|length }} in use.</p>
+</hgroup>
+
+{% if tags %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Tag</th>
+      <th scope="col" class="num">Parts</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for tag, count in tags %}
+    <tr>
+      <th scope="row"><a href="{% url 'part_list' %}?tag={{ tag|urlencode }}">{{ tag }}</a></th>
+      <td class="num">{{ count }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+
+<h2>Rename or remove</h2>
+<p class="muted">A typo becomes its own tag and quietly splits a group in two.
+   This is where you put that right across every part at once.</p>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="grid">
+    <label>Rename this tag
+      <select name="old">
+        {% for tag, count in tags %}<option value="{{ tag }}">{{ tag }} ({{ count }})</option>{% endfor %}
+      </select>
+    </label>
+    <label>To this
+      <input type="text" name="new" placeholder="Leave empty to remove it">
+    </label>
+  </div>
+  <button type="submit">Apply</button>
+</form>
+<p class="muted"><small>Renaming onto a tag that already exists merges the two.
+Leaving the new name empty removes the tag from every part that has it.</small></p>
+
+{% else %}
+  <article>
+    <p><strong>No tags yet.</strong></p>
+    <p class="muted">Tags are free text on a part. They are how you group things
+       the columns can't: <code>i2c</code>, <code>3v3</code>,
+       <code>salvaged</code>.</p>
+  </article>
+{% endif %}
+
+<p><a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a></p>
+
+</div>
+{% endblock %}
