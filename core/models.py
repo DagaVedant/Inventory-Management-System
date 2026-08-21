@@ -1,8 +1,8 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models import F, Q, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import F, Q, Sum, Value
+from django.db.models.functions import Coalesce, Greatest
 from django.utils import timezone
 
 
@@ -59,6 +59,13 @@ class Part(models.Model):
     qty_owned = models.PositiveIntegerField(
         default=0,
         help_text="Total still yours to use: loose plus held by active projects.",
+    )
+    qty_to_buy = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Wanted regardless of any project. Shortfall can only exist "
+            "attached to a build; this is for 'I am running low on these'."
+        ),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -172,6 +179,24 @@ class Part(models.Model):
             project=project,
             note=note,
         )
+
+    @transaction.atomic
+    def receive(self, qty, note=""):
+        """A delivery arrived: stock goes up and the want list comes down.
+
+        Separate from adjust_stock because only a purchase satisfies a want. A
+        teardown reversal also increases stock and should not quietly tell you
+        that you no longer need to buy anything.
+        """
+        movement = self.adjust_stock(qty, MovementReason.PURCHASE, note=note)
+        # Filtered in the database rather than on self.qty_to_buy, which may be
+        # stale: an instance loaded before the want was set would otherwise skip
+        # this and leave the part on the shopping list after it arrived.
+        Part.objects.filter(pk=self.pk, qty_to_buy__gt=0).update(
+            qty_to_buy=Greatest(F("qty_to_buy") - qty, Value(0))
+        )
+        self.refresh_from_db(fields=["qty_to_buy"])
+        return movement
 
     def set_stock(self, new_total, reason=MovementReason.CORRECTION, note=""):
         """Set an absolute quantity. Recounts work this way; deliveries don't."""

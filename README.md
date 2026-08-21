@@ -72,9 +72,17 @@ qty_allocated  what it actually got - never more than wanted
 short          the difference, and the reason the shopping list exists
 ```
 
-Short parts aren't held by anyone. They don't exist yet. The bench page totals
-them per part across every live build, because you buy per part, not per
-project.
+Short parts aren't held by anyone. They don't exist yet.
+
+Shortfall can only exist attached to a build, so `Part.qty_to_buy` covers the
+other half: "I'm running low on 10k resistors", which has nothing to do with
+any project. The bench page's shopping list totals both sources per part,
+because you buy per part rather than per project.
+
+Receiving a delivery through `Part.receive()` takes the part back off the list.
+That is deliberately separate from `adjust_stock()`, because only a purchase
+satisfies a want: stock returning from a reversed teardown should not tell you
+that you have finished shopping.
 
 ### Taking a teardown back
 
@@ -168,7 +176,7 @@ ruff check .
 ruff format --check .
 ```
 
-A hundred and forty-one of them, mostly on the arithmetic. The invariant that soldered and
+A hundred and fifty of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
