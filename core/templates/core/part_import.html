@@ -35,6 +35,11 @@
   <label for="{{ form.text.id_for_label }}">{{ form.text.label }}</label>
   {{ form.text }}
 
+  <label style="margin-top:.5rem">
+    {{ form.top_up }} {{ form.top_up.label }}
+  </label>
+  <p class="muted" style="margin-top:0"><small>{{ form.top_up.help_text }}</small></p>
+
   <div style="display:flex; gap:.5rem; align-items:center;">
     <button type="submit">Import</button>
     <a href="{% url 'part_list' %}" class="muted">Cancel</a>

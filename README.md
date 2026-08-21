@@ -176,7 +176,7 @@ ruff check .
 ruff format --check .
 ```
 
-A hundred and eighty-six of them, mostly on the arithmetic. The invariant that soldered and
+Two hundred and seven of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
@@ -249,6 +249,12 @@ ESP32 devkit, 2, , module, mcu, wifi
 
 It's all or nothing: one malformed line rejects the whole paste with the line
 numbers, because a half-applied import leaves you unable to tell what landed.
+An over-long value or package is reported rather than quietly truncated.
+
+By default a line naming a part you already own is refused. Tick **add
+quantities to parts I already have** and it is treated as a delivery instead,
+which lands in the ledger and clears the shopping list, so the importer works
+for restocking as well as first entry.
 
 **Or one at a time** with the add form, which reopens empty with the cursor
 back in the name field so a pile goes in without touching the mouse.
@@ -309,6 +315,33 @@ account password.
 ```python
 python manage.py shell -c "from django.contrib.auth import get_user_model; U=get_user_model(); u=U.objects.get(username='...'); u.set_password('...'); u.save()"
 ```
+
+## Backups
+
+Once your bin is in here the data is irreplaceable and lives on one Postgres
+instance.
+
+```bash
+python manage.py backup                  # backup-<timestamp>.json
+python manage.py backup --to-stdout      # pipe it somewhere yourself
+python manage.py loaddata backup-....json
+```
+
+The flag is `--to-stdout` rather than `--stdout` on purpose: `call_command()`
+maps a flag's name onto its dest, so a `--stdout` flag swallows the `stdout=`
+kwarg callers use to redirect output and the redirect silently stops working.
+
+## Rate limiting
+
+Signup is open and login accepts anything, so both are throttled per IP: ten
+failed logins in five minutes, five signups an hour. Only failures count, so a
+successful login clears the tally and using the app normally never trips it.
+
+No dependency for this. One cache-backed counter is enough for a single
+container, and the honest limitation is written down in `core/throttle.py`: the
+default cache is per process, so with several workers the effective limit is
+roughly the configured one times the worker count. That still turns unlimited
+guessing into slow guessing.
 
 ## Continuous integration
 

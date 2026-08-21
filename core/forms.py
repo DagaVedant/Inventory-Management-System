@@ -86,6 +86,23 @@ def parse_parts_text(text):
         package = fields[3] if len(fields) > 3 else ""
         tags = ", ".join(f for f in fields[4:] if f)
 
+        # Say so rather than truncating. Quietly storing "0805 surface mou"
+        # is worse than refusing the line and letting it be fixed.
+        too_long = [
+            label
+            for label, text, limit in [
+                ("value", value, 50),
+                ("package", package, 50),
+                ("tags", tags, 200),
+            ]
+            if len(text) > limit
+        ]
+        if too_long:
+            errors.append(
+                (number, f"{' and '.join(too_long)} too long, shorten and retry.")
+            )
+            continue
+
         key = match_key(name, value)
         if key in seen:
             errors.append((number, f"Same part as line {seen[key]} - combine them."))
@@ -96,9 +113,9 @@ def parse_parts_text(text):
             {
                 "name": name,
                 "qty_owned": qty,
-                "value": value[:50],
-                "package": package[:50],
-                "tags": tags[:200],
+                "value": value,
+                "package": package,
+                "tags": tags,
             }
         )
 
@@ -123,10 +140,20 @@ class BulkPartImportForm(forms.Form):
         ),
     )
 
+    top_up = forms.BooleanField(
+        required=False,
+        label="Add quantities to parts I already have",
+        help_text=(
+            "Without this, a line naming a part you already own is refused. "
+            "With it, the quantity is added as a delivery."
+        ),
+    )
+
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
         self.rows = []
+        self.updates = []
 
     def clean_text(self):
         text = self.cleaned_data["text"]
@@ -138,23 +165,28 @@ class BulkPartImportForm(forms.Form):
         # Nothing is created unless every line is good. A half-applied paste is
         # worse than a rejected one - you can't tell what landed.
         if self.user is not None:
-            existing = {
-                match_key(name, value): f"{name} {value}".strip()
-                for name, value in Part.objects.filter(user=self.user).values_list(
-                    "name", "value"
-                )
-            }
+            existing = {}
+            for part in Part.objects.filter(user=self.user):
+                existing[part.match_key()] = part
+
+            top_up = self.data.get("top_up")
+            fresh = []
             for row in rows:
                 clash = existing.get(match_key(row["name"], row["value"]))
-                if clash:
+                if clash is None:
+                    fresh.append(row)
+                elif top_up:
+                    self.updates.append((clash, row["qty_owned"]))
+                else:
                     errors.append(
                         (
                             0,
                             f"{row['name']} looks like the {clash} you already "
-                            f"have. Remove the line, or import it under a name "
-                            f"that isn't the same component.",
+                            f"have. Tick the box below to add to it instead, or "
+                            f"remove the line.",
                         )
                     )
+            rows = fresh
 
         if errors:
             raise forms.ValidationError(
@@ -168,8 +200,18 @@ class BulkPartImportForm(forms.Form):
         return text
 
     def save(self):
-        parts = [Part(user=self.user, **row) for row in self.rows]
-        return Part.objects.bulk_create(parts)
+        """Returns (created, topped_up).
+
+        Top-ups go through receive() so they land in the ledger as deliveries
+        and clear the shopping list, exactly as they would if typed in one at
+        a time.
+        """
+        created = Part.objects.bulk_create(
+            [Part(user=self.user, **row) for row in self.rows]
+        )
+        for part, qty in self.updates:
+            part.receive(qty, note="Imported.")
+        return created, len(self.updates)
 
 
 class AddStockForm(forms.Form):
