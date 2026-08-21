@@ -61,31 +61,38 @@
 
 <h2>Shopping list</h2>
 {% if shortfall %}
-<p class="muted">{{ total_short }} part{{ total_short|pluralize }} your live builds
-   need and you don't have.</p>
+<p class="muted">{{ total_short }} part{{ total_short|pluralize }} to buy.</p>
 <figure>
 <table>
   <thead>
     <tr>
       <th scope="col">Part</th>
-      <th scope="col" class="num">Short</th>
+      <th scope="col" class="num">For builds</th>
+      <th scope="col" class="num">Wanted</th>
+      <th scope="col" class="num">Total</th>
     </tr>
   </thead>
   <tbody>
     {% for row in shortfall %}
     <tr>
       <th scope="row">
-        <a href="{% url 'part_detail' row.part_id %}">{{ row.part__name }}</a>
-        {% if row.part__value %}<span class="muted">{{ row.part__value }}</span>{% endif %}
+        <a href="{% url 'part_detail' row.part_id %}">{{ row.name }}</a>
+        {% if row.value %}<span class="muted">{{ row.value }}</span>{% endif %}
       </th>
-      <td class="num"><strong class="zero">{{ row.short }}</strong></td>
+      <td class="num {% if not row.from_builds %}muted{% endif %}">{{ row.from_builds }}</td>
+      <td class="num {% if not row.wanted %}muted{% endif %}">{{ row.wanted }}</td>
+      <td class="num"><strong class="zero">{{ row.total }}</strong></td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
+<p class="muted"><small><strong>For builds</strong> is what live projects asked
+for and couldn't get. <strong>Wanted</strong> is what you put on the list
+yourself, from a part's own page.</small></p>
 {% else %}
-  <p class="muted">Nothing to buy. Every live build got what it asked for.</p>
+  <p class="muted">Nothing to buy. Every live build got what it asked for, and
+   you haven't put anything on the list.</p>
 {% endif %}
 
 {% if running_low %}

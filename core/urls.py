@@ -11,6 +11,7 @@ urlpatterns = [
     path("parts/import/", views.part_import, name="part_import"),
     path("parts/<int:pk>/", views.PartDetailView.as_view(), name="part_detail"),
     path("parts/<int:pk>/add-stock/", views.part_add_stock, name="part_add_stock"),
+    path("parts/<int:pk>/want/", views.part_want, name="part_want"),
     path("parts/<int:pk>/edit/", views.PartUpdateView.as_view(), name="part_update"),
     path("parts/<int:pk>/delete/", views.PartDeleteView.as_view(), name="part_delete"),
     path("projects/", views.ProjectListView.as_view(), name="project_list"),

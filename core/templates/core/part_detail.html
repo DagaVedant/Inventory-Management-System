@@ -43,6 +43,25 @@
     <a href="{% url 'part_update' part.pk %}">edit the part</a>.</small></span>
 </form>
 
+<form method="post" action="{% url 'part_want' part.pk %}"
+      style="display:flex; gap:.5rem; align-items:flex-end; flex-wrap:wrap;
+             margin-top:.5rem;">
+  {% csrf_token %}
+  <label style="margin:0">
+    {{ want_form.qty.label }}
+    {{ want_form.qty }}
+  </label>
+  <button type="submit" class="secondary" style="width:auto">Save</button>
+  <span class="muted"><small>
+    {% if part.qty_to_buy %}
+      On the shopping list. Set it to 0 to take it off.
+    {% else %}
+      Puts it on the shopping list without needing a project. A delivery takes
+      it back off.
+    {% endif %}
+  </small></span>
+</form>
+
 <h2>Held right now</h2>
 {% if holding %}
 <figure>

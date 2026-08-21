@@ -178,6 +178,16 @@ class AddStockForm(forms.Form):
     )
 
 
+class WantToBuyForm(forms.Form):
+    """How many of this to buy, regardless of any project."""
+
+    qty = forms.IntegerField(
+        min_value=0,
+        label="Want to buy",
+        widget=forms.NumberInput(attrs={"min": 0, "style": "width:6em"}),
+    )
+
+
 class PartForm(forms.ModelForm):
     class Meta:
         model = Part

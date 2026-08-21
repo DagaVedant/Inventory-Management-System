@@ -27,6 +27,7 @@ from .forms import (
     PartForm,
     SignupForm,
     TeardownFormSet,
+    WantToBuyForm,
 )
 from .models import (
     MovementReason,
@@ -123,19 +124,47 @@ def dashboard(request):
         project.held_count = sum(line.remaining for line in lines)
         project.short_count = sum(line.short for line in lines)
 
-    # One row per part you're short of, totalled across every live build -
-    # you buy per part, not per project.
-    shortfall = (
+    # One row per part you need to buy, from two sources that both count:
+    # what live builds asked for and couldn't get, and what you've simply put
+    # on the list. Totalled per part, because you buy per part, not per project.
+    shortfall = {}
+
+    for row in (
         ProjectPart.objects.filter(
             project__user=user, project__status=ProjectStatus.ACTIVE
         )
         .values("part_id", "part__name", "part__value")
         .annotate(short=Sum(F("qty_wanted") - F("qty_allocated")))
         .filter(short__gt=0)
-        .order_by("-short", "part__name")
-    )
+    ):
+        shortfall[row["part_id"]] = {
+            "part_id": row["part_id"],
+            "name": row["part__name"],
+            "value": row["part__value"],
+            "from_builds": row["short"],
+            "wanted": 0,
+        }
 
     parts = Part.objects.filter(user=user).with_availability()
+
+    for part in parts.filter(qty_to_buy__gt=0):
+        row = shortfall.setdefault(
+            part.pk,
+            {
+                "part_id": part.pk,
+                "name": part.name,
+                "value": part.value,
+                "from_builds": 0,
+                "wanted": 0,
+            },
+        )
+        row["wanted"] = part.qty_to_buy
+
+    for row in shortfall.values():
+        row["total"] = row["from_builds"] + row["wanted"]
+
+    shortfall = sorted(shortfall.values(), key=lambda row: (-row["total"], row["name"]))
+
     running_low = parts.order_by("available", "name")[:8]
 
     return render(
@@ -146,7 +175,7 @@ def dashboard(request):
             "shortfall": shortfall,
             "running_low": running_low,
             "total_parts": parts.count(),
-            "total_short": sum(row["short"] for row in shortfall),
+            "total_short": sum(row["total"] for row in shortfall),
             "archived_count": Project.objects.filter(
                 user=user, status=ProjectStatus.ARCHIVED
             ).count(),
@@ -285,6 +314,7 @@ class PartDetailView(OwnedMixin, DetailView):
         context["history"] = [line for line in lines if not line.project.is_active]
         context["total_lost"] = sum(line.lost for line in lines)
         context["add_stock_form"] = AddStockForm()
+        context["want_form"] = WantToBuyForm(initial={"qty": self.object.qty_to_buy})
         context["movements"] = self.object.movements.select_related("project")[:25]
         context["movement_count"] = self.object.movements.count()
         return context
@@ -299,12 +329,42 @@ def part_add_stock(request, pk):
 
     if form.is_valid():
         qty = form.cleaned_data["qty"]
-        part.adjust_stock(qty, MovementReason.PURCHASE)
+        wanted = part.qty_to_buy
+        part.receive(qty)
+
+        note = ""
+        if wanted:
+            note = (
+                " Nothing left to buy."
+                if not part.qty_to_buy
+                else f" Still {part.qty_to_buy} to buy."
+            )
         messages.success(
-            request, f"Added {qty}. You now own {part.qty_owned} × {part.name}."
+            request,
+            f"Added {qty}. You now own {part.qty_owned} × {part.name}.{note}",
         )
     else:
         messages.error(request, "Enter how many arrived.")
+
+    return redirect("part_detail", pk=part.pk)
+
+
+@login_required
+@require_POST
+def part_want(request, pk):
+    """Put a part on the shopping list without inventing a project for it."""
+    part = get_object_or_404(Part, pk=pk, user=request.user)
+    form = WantToBuyForm(request.POST)
+
+    if form.is_valid():
+        qty = form.cleaned_data["qty"]
+        Part.objects.filter(pk=part.pk).update(qty_to_buy=qty)
+        if qty:
+            messages.success(request, f"{part.name} is on the shopping list: {qty}.")
+        else:
+            messages.success(request, f"Took {part.name} off the shopping list.")
+    else:
+        messages.error(request, "Enter how many you want to buy.")
 
     return redirect("part_detail", pk=part.pk)
 

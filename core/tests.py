@@ -861,6 +861,100 @@ class AddStockTests(BaseCase):
         self.assertEqual(theirs.qty_owned, 1)
 
 
+class WantListTests(BaseCase):
+    """Shortfall needs a project. Wanting to buy something doesn't."""
+
+    def want(self, part, qty):
+        return self.client.post(reverse("part_want", args=[part.pk]), {"qty": qty})
+
+    def test_a_part_can_be_wanted_without_inventing_a_project(self):
+        p = self.part(qty=2)
+        self.want(p, 20)
+        p.refresh_from_db()
+        self.assertEqual(p.qty_to_buy, 20)
+
+        response = self.client.get(reverse("dashboard"))
+        rows = list(response.context["shortfall"])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["wanted"], 20)
+        self.assertEqual(rows[0]["from_builds"], 0)
+        self.assertEqual(rows[0]["total"], 20)
+        self.assertEqual(Project.objects.count(), 0)
+
+    def test_setting_it_to_zero_takes_it_off_the_list(self):
+        p = self.part()
+        self.want(p, 5)
+        self.want(p, 0)
+        p.refresh_from_db()
+        self.assertEqual(p.qty_to_buy, 0)
+        self.assertEqual(
+            list(self.client.get(reverse("dashboard")).context["shortfall"]), []
+        )
+
+    def test_both_sources_add_up_on_one_row(self):
+        p = self.part("DHT22", qty=1)
+        ProjectPart.objects.create(
+            project=self.project("A build"), part=p, qty_wanted=4, qty_allocated=1
+        )
+        self.want(p, 10)
+
+        rows = list(self.client.get(reverse("dashboard")).context["shortfall"])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["from_builds"], 3)
+        self.assertEqual(rows[0]["wanted"], 10)
+        self.assertEqual(rows[0]["total"], 13)
+
+    def test_a_delivery_takes_it_back_off_the_list(self):
+        p = self.part(qty=2)
+        self.want(p, 20)
+        self.client.post(reverse("part_add_stock", args=[p.pk]), {"qty": 20})
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 22)
+        self.assertEqual(p.qty_to_buy, 0)
+
+    def test_a_partial_delivery_leaves_the_rest_on_the_list(self):
+        p = self.part(qty=0)
+        self.want(p, 20)
+        self.client.post(reverse("part_add_stock", args=[p.pk]), {"qty": 8})
+        p.refresh_from_db()
+        self.assertEqual(p.qty_to_buy, 12)
+
+    def test_over_delivering_does_not_go_negative(self):
+        p = self.part(qty=0)
+        self.want(p, 5)
+        p.receive(50)
+        p.refresh_from_db()
+        self.assertEqual(p.qty_to_buy, 0)
+
+    def test_a_teardown_reversal_does_not_clear_the_want_list(self):
+        """Only a purchase satisfies a want. Stock coming back from a reversed
+        teardown is not a delivery, and shouldn't say you're done shopping."""
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        proj.tear_down([(line, 0, 3, 1)])
+        self.want(p, 6)
+
+        proj.reopen()
+        p.refresh_from_db()
+        self.assertEqual(p.qty_to_buy, 6)
+
+    def test_you_cannot_want_someone_elses_part(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Not yours", qty_owned=1)
+        response = self.want(theirs, 9)
+        self.assertEqual(response.status_code, 404)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.qty_to_buy, 0)
+
+    def test_it_requires_login(self):
+        p = self.part()
+        self.assertEqual(
+            Client().post(reverse("part_want", args=[p.pk]), {"qty": 5}).status_code,
+            302,
+        )
+
+
 class ReopenTests(BaseCase):
     """Teardown is the one operation that destroys information. Undo it."""
 
@@ -1256,8 +1350,9 @@ class DashboardTests(BaseCase):
         response = self.client.get(self.url)
         rows = list(response.context["shortfall"])
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["part__name"], "DHT22")
-        self.assertEqual(rows[0]["short"], 7)
+        self.assertEqual(rows[0]["name"], "DHT22")
+        self.assertEqual(rows[0]["from_builds"], 7)
+        self.assertEqual(rows[0]["total"], 7)
         self.assertEqual(response.context["total_short"], 7)
 
     def test_archived_builds_do_not_appear_on_the_shopping_list(self):
