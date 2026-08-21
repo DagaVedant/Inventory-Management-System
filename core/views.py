@@ -108,6 +108,7 @@ def dashboard(request):
     active = list(
         Project.objects.filter(user=user, status=ProjectStatus.ACTIVE)
         .annotate(n_lines=Count("lines"))
+        .prefetch_related("lines")
         .order_by("-created_at")
     )
     for project in active:
@@ -544,7 +545,7 @@ def project_teardown(request, pk):
         return HttpResponseRedirect(detail_url)
 
     if request.method == "POST":
-        formset = TeardownFormSet(request.POST)
+        formset = TeardownFormSet(request.POST, form_kwargs={"project": project})
         if formset.is_valid():
             outcomes = [
                 (
@@ -571,9 +572,10 @@ def project_teardown(request, pk):
                 return HttpResponseRedirect(detail_url)
     else:
         formset = TeardownFormSet(
+            form_kwargs={"project": project},
             initial=[
                 {"line_id": line.pk, "qty_returned": line.remaining} for line in lines
-            ]
+            ],
         )
 
     lines_by_id = {line.pk: line for line in lines}

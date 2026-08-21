@@ -313,13 +313,23 @@ class TeardownLineForm(forms.Form):
         widget=forms.NumberInput(attrs={"min": 0, "style": "width:5em"}),
     )
 
+    def __init__(self, *args, project=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.project = project
+
     def clean(self):
         cleaned = super().clean()
 
+        # Scoped to the project being torn down. line_id comes straight from
+        # the POST, and without this filter an unrelated id would still be
+        # looked up and its quantity read back in the error message below,
+        # which is an answer this form has no business giving.
+        lines = ProjectPart.objects.select_related("part", "project")
+        if self.project is not None:
+            lines = lines.filter(project=self.project)
+
         try:
-            line = ProjectPart.objects.select_related("part", "project").get(
-                pk=cleaned.get("line_id")
-            )
+            line = lines.get(pk=cleaned.get("line_id"))
         except ProjectPart.DoesNotExist:
             raise forms.ValidationError(
                 "That allocation line no longer exists - reload the page."
