@@ -16,6 +16,7 @@ from django.views.generic import (
     DeleteView,
     DetailView,
     ListView,
+    TemplateView,
     UpdateView,
 )
 
@@ -38,7 +39,7 @@ class SignupView(CreateView):
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
-            return redirect("part_list")
+            return redirect("dashboard")
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -53,7 +54,7 @@ class SignupView(CreateView):
             self.request,
             "Account created. Add your first part whenever you're ready.",
         )
-        return redirect("part_list")
+        return redirect("dashboard")
 
 
 class GuardedPasswordResetView(auth_views.PasswordResetView):
@@ -90,6 +91,13 @@ def healthz(request):
     except OperationalError:
         return JsonResponse({"status": "error", "database": "unreachable"}, status=503)
     return JsonResponse({"status": "ok"})
+
+
+class GuideView(TemplateView):
+    """How the app works. No login required: it holds nothing personal, and
+    someone deciding whether to sign up should be able to read it first."""
+
+    template_name = "core/guide.html"
 
 
 @login_required

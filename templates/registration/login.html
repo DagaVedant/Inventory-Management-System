@@ -19,6 +19,7 @@
   </form>
 
   <p class="muted"><small>
+    New here? <a href="{% url 'guide' %}">How it works</a>.
     No account? <a href="{% url 'signup' %}">Create one</a>.
     {% if email_configured %}
       &middot; <a href="{% url 'password_reset' %}">Forgot your password?</a>
