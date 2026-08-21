@@ -176,7 +176,7 @@ ruff check .
 ruff format --check .
 ```
 
-Two hundred and seven of them, mostly on the arithmetic. The invariant that soldered and
+Two hundred and eight of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
@@ -184,9 +184,12 @@ several directions.
 ## Finding your way around
 
 `/guide/` is a short how-it-works page covering the whole loop: getting parts
-in, allocating, running short, and tearing down. It needs no login, so someone
-deciding whether to sign up can read it first. The **Inventory** wordmark in
-the nav goes there; **Bench** is the dashboard.
+in, allocating, running short, tearing down, tags, duplicates and history. It
+needs no login, so someone deciding whether to sign up can read it first.
+
+The nav is four links, one per section: **Bench**, **Parts**, **Projects**,
+**Guide**. The mark to their left is a mark, not navigation, so it isn't
+clickable and doesn't compete with them.
 
 ## The bench
 

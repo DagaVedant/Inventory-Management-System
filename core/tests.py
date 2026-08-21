@@ -1943,10 +1943,21 @@ class GuideTests(ClearsThrottle, TestCase):
 
 
 class NavigationTests(BaseCase):
-    def test_brand_goes_to_the_guide_and_bench_to_the_dashboard(self):
+    def test_the_brand_is_a_mark_not_a_link(self):
         response = self.client.get(reverse("dashboard"))
-        self.assertContains(response, f'<strong><a href="{reverse("guide")}">')
-        self.assertContains(response, f'<a href="{reverse("dashboard")}">Bench</a>')
+        self.assertContains(response, '<span class="brand">')
+        self.assertNotContains(response, f'<a href="{reverse("guide")}">Inventory</a>')
+
+    def test_every_section_has_its_own_nav_entry(self):
+        response = self.client.get(reverse("dashboard"))
+        for name, label in [
+            ("dashboard", "Bench"),
+            ("part_list", "Parts"),
+            ("project_list", "Projects"),
+            ("guide", "Guide"),
+        ]:
+            with self.subTest(label=label):
+                self.assertContains(response, f'<a href="{reverse(name)}">{label}</a>')
 
     def test_bench_is_still_the_landing_page_after_login(self):
         client = Client()
