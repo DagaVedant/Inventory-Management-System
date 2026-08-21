@@ -6,14 +6,27 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, connection, transaction
-from django.db.models import Count, ProtectedError, Q
+from django.db.models import Count, F, ProtectedError, Q
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, DeleteView, ListView, UpdateView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    UpdateView,
+)
 
-from .forms import AllocationForm, PartForm, SignupForm, TeardownFormSet
+from .forms import (
+    AddStockForm,
+    AllocationForm,
+    BulkPartImportForm,
+    PartForm,
+    SignupForm,
+    TeardownFormSet,
+)
 from .models import Part, Project, ProjectPart
 
 # ----------------------------------------------------------------- accounts
@@ -135,6 +148,72 @@ class PartCreateView(OwnedMixin, CreateView):
         if "_addanother" in self.request.POST:
             return reverse("part_create")
         return reverse("part_list")
+
+
+class PartDetailView(OwnedMixin, DetailView):
+    """Where a part actually is: which builds hold it, and what has eaten it."""
+
+    model = Part
+    template_name = "core/part_detail.html"
+    context_object_name = "part"
+
+    def get_queryset(self):
+        return super().get_queryset().with_availability()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        lines = self.object.allocations.select_related("project").order_by(
+            "-project__created_at"
+        )
+        context["holding"] = [
+            line for line in lines if line.project.is_active and line.remaining
+        ]
+        context["history"] = [line for line in lines if not line.project.is_active]
+        context["total_lost"] = sum(line.lost for line in lines)
+        context["add_stock_form"] = AddStockForm()
+        return context
+
+
+@login_required
+@require_POST
+def part_add_stock(request, pk):
+    """A delivery arrived. Add to what you own without doing the arithmetic."""
+    part = get_object_or_404(Part, pk=pk, user=request.user)
+    form = AddStockForm(request.POST)
+
+    if form.is_valid():
+        qty = form.cleaned_data["qty"]
+        # F() rather than read-modify-write, so two deliveries logged at once
+        # can't overwrite each other.
+        Part.objects.filter(pk=part.pk).update(qty_owned=F("qty_owned") + qty)
+        part.refresh_from_db()
+        messages.success(
+            request, f"Added {qty}. You now own {part.qty_owned} × {part.name}."
+        )
+    else:
+        messages.error(request, "Enter how many arrived.")
+
+    return redirect("part_detail", pk=part.pk)
+
+
+@login_required
+def part_import(request):
+    """Paste a whole bin in one go.
+
+    All or nothing: if any line is malformed the whole paste is rejected with
+    the line numbers, because a half-applied import leaves you unable to tell
+    what landed.
+    """
+    if request.method == "POST":
+        form = BulkPartImportForm(request.POST, user=request.user)
+        if form.is_valid():
+            created = form.save()
+            messages.success(request, f"Added {len(created)} parts.")
+            return redirect("part_list")
+    else:
+        form = BulkPartImportForm(user=request.user)
+
+    return render(request, "core/part_import.html", {"form": form})
 
 
 class PartUpdateView(OwnedMixin, UpdateView):

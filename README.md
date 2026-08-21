@@ -119,10 +119,50 @@ ruff check .
 ruff format --check .
 ```
 
-Sixty-seven of them, mostly on the arithmetic. The invariant that soldered and
+Ninety of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
+
+## Getting a bin in
+
+Entering a hundred parts one form at a time is how these tools die with an
+empty database, so there are two paths.
+
+**Paste a list** at `/parts/import/` — one part per line:
+
+```
+name, quantity, value, package, tag, tag, ...
+```
+
+Only name and quantity are required. Everything from the fifth field onward
+becomes tags, which is what lets tags contain commas without escaping. Blank
+lines and `#` comments are ignored.
+
+```
+10k resistor, 180, 10k, through-hole, passive, resistor
+DHT22, 4
+ESP32 devkit, 2, , module, mcu, wifi
+```
+
+It's all or nothing: one malformed line rejects the whole paste with the line
+numbers, because a half-applied import leaves you unable to tell what landed.
+
+**Or one at a time** with the add form, which reopens empty with the cursor
+back in the name field so a pile goes in without touching the mouse.
+
+## Following a part around
+
+Click any part name for its own page: how many are owned, held and available,
+which projects are holding them right now, and every finished build that
+consumed some — with what was returned, soldered in and broken. That answers
+"where did my 10ks go", which the data always supported and nothing used to
+show you.
+
+**Add stock** lives there too, for when a delivery arrives: type how many came
+and it adds to what you own. Correcting a miscount is a different operation
+and stays on the edit form where you set the absolute number, so there's never
+a question of which one you meant.
 
 ## Accounts
 

@@ -14,6 +14,7 @@
            placeholder="Search name, value, package, tags, notes">
   </form>
   <a href="{% url 'part_create' %}" role="button">Add part</a>
+  <a href="{% url 'part_import' %}" role="button" class="secondary">Import</a>
 </div>
 
 {% if parts %}
@@ -34,7 +35,9 @@
   <tbody>
     {% for part in parts %}
     <tr>
-      <th scope="row">{{ part.name }}</th>
+      <th scope="row">
+        <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
+      </th>
       <td>{{ part.value|default:"" }}</td>
       <td class="muted">{{ part.package|default:"" }}</td>
       <td class="num">{{ part.qty_owned }}</td>
@@ -74,6 +77,7 @@
     <p class="muted">Start with whatever is on top of the bin. You can add the
        rest as you go — a half-entered inventory is more useful than none.</p>
     <a href="{% url 'part_create' %}" role="button">Add the first one</a>
+    <p class="muted"><small>Got a list already? <a href="{% url 'part_import' %}">Paste the whole lot in</a>.</small></p>
   </article>
 {% endif %}
 {% endblock %}

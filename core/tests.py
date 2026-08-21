@@ -7,6 +7,7 @@ from django.db import IntegrityError, transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse, reverse_lazy
 
+from .forms import parse_parts_text
 from .models import Part, Project, ProjectPart, ProjectStatus
 
 User = get_user_model()
@@ -615,6 +616,174 @@ class PresentationTests(BaseCase):
     def test_pages_declare_a_favicon(self):
         response = self.client.get(reverse("part_list"))
         self.assertContains(response, "favicon.svg")
+
+
+class ParserTests(TestCase):
+    """The bulk import parser, independent of any form or view."""
+
+    def test_name_and_quantity_are_enough(self):
+        rows, errors = parse_parts_text("DHT22, 4")
+        self.assertEqual(errors, [])
+        self.assertEqual(rows[0]["name"], "DHT22")
+        self.assertEqual(rows[0]["qty_owned"], 4)
+
+    def test_everything_after_the_fourth_field_becomes_tags(self):
+        rows, _ = parse_parts_text(
+            "Resistor, 180, 10k, through-hole, passive, resistor, cheap"
+        )
+        self.assertEqual(rows[0]["value"], "10k")
+        self.assertEqual(rows[0]["package"], "through-hole")
+        self.assertEqual(rows[0]["tags"], "passive, resistor, cheap")
+
+    def test_blank_lines_and_comments_are_skipped(self):
+        rows, errors = parse_parts_text("# my bin\n\nDHT22, 4\n\n  \n# end")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(errors, [])
+
+    def test_errors_carry_the_line_number(self):
+        rows, errors = parse_parts_text("DHT22, 4\nBMP280\nLED, lots")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual([number for number, _ in errors], [2, 3])
+        self.assertIn("name and a quantity", errors[0][1])
+        self.assertIn("whole number", errors[1][1])
+
+    def test_negative_quantity_is_rejected(self):
+        _, errors = parse_parts_text("DHT22, -4")
+        self.assertIn("negative", errors[0][1])
+
+    def test_zero_quantity_is_allowed(self):
+        rows, errors = parse_parts_text("DHT22, 0")
+        self.assertEqual(errors, [])
+        self.assertEqual(rows[0]["qty_owned"], 0)
+
+    def test_duplicate_lines_point_at_each_other(self):
+        _, errors = parse_parts_text("Resistor, 10, 10k\nResistor, 5, 10k")
+        self.assertIn("line 1", errors[0][1])
+
+    def test_same_name_different_value_is_not_a_duplicate(self):
+        rows, errors = parse_parts_text("Resistor, 10, 10k\nResistor, 5, 220R")
+        self.assertEqual(errors, [])
+        self.assertEqual(len(rows), 2)
+
+
+class BulkImportTests(BaseCase):
+    url = reverse_lazy("part_import")
+
+    def test_imports_every_line(self):
+        response = self.client.post(
+            self.url, {"text": "DHT22, 4\nBMP280, 2, , module\nResistor, 180, 10k"}
+        )
+        self.assertRedirects(response, reverse("part_list"))
+        self.assertEqual(Part.objects.filter(user=self.user).count(), 3)
+        self.assertEqual(Part.objects.get(name="Resistor").value, "10k")
+
+    def test_imported_parts_belong_to_you(self):
+        self.client.post(self.url, {"text": "DHT22, 4"})
+        self.assertEqual(Part.objects.get(name="DHT22").user, self.user)
+
+    def test_one_bad_line_rejects_the_whole_paste(self):
+        response = self.client.post(
+            self.url, {"text": "DHT22, 4\nBMP280, heaps\nResistor, 180"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Line 2")
+        self.assertEqual(Part.objects.filter(user=self.user).count(), 0)
+
+    def test_clashing_with_an_existing_part_is_refused(self):
+        self.part("DHT22", qty=1)
+        response = self.client.post(self.url, {"text": "DHT22, 4"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already in your parts list")
+        self.assertEqual(Part.objects.filter(name="DHT22").count(), 1)
+
+    def test_someone_elses_part_of_the_same_name_is_not_a_clash(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        Part.objects.create(user=stranger, name="DHT22", qty_owned=9)
+        response = self.client.post(self.url, {"text": "DHT22, 4"})
+        self.assertRedirects(response, reverse("part_list"))
+        self.assertEqual(Part.objects.filter(name="DHT22").count(), 2)
+
+    def test_import_requires_login(self):
+        self.assertEqual(Client().get(self.url).status_code, 302)
+
+
+class PartDetailTests(BaseCase):
+    def test_shows_who_is_holding_it_and_what_ate_it(self):
+        p = self.part(qty=10)
+        live = self.project("On the bench")
+        ProjectPart.objects.create(project=live, part=p, qty_allocated=3)
+
+        dead = self.project("Finished build")
+        line = ProjectPart.objects.create(project=dead, part=p, qty_allocated=4)
+        dead.tear_down([(line, 1, 2, 1)])
+
+        response = self.client.get(reverse("part_detail", args=[p.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "On the bench")
+        self.assertContains(response, "Finished build")
+        self.assertEqual(response.context["total_lost"], 3)
+        self.assertEqual(len(response.context["holding"]), 1)
+        self.assertEqual(len(response.context["history"]), 1)
+
+    def test_reports_the_derived_numbers(self):
+        p = self.part(qty=10)
+        ProjectPart.objects.create(project=self.project(), part=p, qty_allocated=4)
+        part = self.client.get(reverse("part_detail", args=[p.pk])).context["part"]
+        self.assertEqual(part.held, 4)
+        self.assertEqual(part.available, 6)
+
+    def test_a_fully_returned_line_is_not_listed_as_held(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        ProjectPart.objects.create(
+            project=proj, part=p, qty_allocated=4, qty_returned=4
+        )
+        response = self.client.get(reverse("part_detail", args=[p.pk]))
+        self.assertEqual(response.context["holding"], [])
+
+    def test_you_cannot_view_someone_elses_part(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Not yours", qty_owned=1)
+        response = self.client.get(reverse("part_detail", args=[theirs.pk]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_parts_list_links_to_the_detail_page(self):
+        p = self.part()
+        response = self.client.get(reverse("part_list"))
+        self.assertContains(response, reverse("part_detail", args=[p.pk]))
+
+
+class AddStockTests(BaseCase):
+    def test_adding_stock_raises_owned_and_available(self):
+        p = self.part(qty=10)
+        ProjectPart.objects.create(project=self.project(), part=p, qty_allocated=4)
+        self.client.post(reverse("part_add_stock", args=[p.pk]), {"qty": 50})
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 60)
+        self.assertEqual(p.compute_available(), 56)
+
+    def test_zero_and_negative_are_refused(self):
+        p = self.part(qty=10)
+        for bad in (0, -5):
+            self.client.post(reverse("part_add_stock", args=[p.pk]), {"qty": bad})
+            p.refresh_from_db()
+            self.assertEqual(p.qty_owned, 10)
+
+    def test_get_is_not_allowed(self):
+        p = self.part()
+        self.assertEqual(
+            self.client.get(reverse("part_add_stock", args=[p.pk])).status_code, 405
+        )
+
+    def test_you_cannot_add_stock_to_someone_elses_part(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Not yours", qty_owned=1)
+        response = self.client.post(
+            reverse("part_add_stock", args=[theirs.pk]), {"qty": 5}
+        )
+        self.assertEqual(response.status_code, 404)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.qty_owned, 1)
 
 
 class HealthCheckTests(TestCase):

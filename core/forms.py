@@ -36,6 +36,148 @@ class SignupForm(UserCreationForm):
         return given
 
 
+def parse_parts_text(text):
+    """Turn pasted lines into part fields.
+
+    One part per line, comma separated::
+
+        name, qty, value, package, tag, tag, ...
+
+    Only name and quantity are required. Everything from the fifth field
+    onward is rejoined as tags, which is what lets tags contain commas without
+    anyone having to escape anything. Blank lines and lines starting with #
+    are skipped.
+
+    Returns (rows, errors). Errors are (line_number, message) so the form can
+    point at the offending line rather than saying "something was wrong".
+    """
+    rows, errors = [], []
+    seen = {}
+
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        fields = [f.strip() for f in line.split(",")]
+        if len(fields) < 2:
+            errors.append((number, "Needs at least a name and a quantity."))
+            continue
+
+        name = fields[0]
+        if not name:
+            errors.append((number, "Missing a name."))
+            continue
+        if len(name) > 200:
+            errors.append((number, "Name is longer than 200 characters."))
+            continue
+
+        try:
+            qty = int(fields[1])
+        except ValueError:
+            errors.append((number, f"{fields[1]!r} is not a whole number."))
+            continue
+        if qty < 0:
+            errors.append((number, "Quantity cannot be negative."))
+            continue
+
+        value = fields[2] if len(fields) > 2 else ""
+        package = fields[3] if len(fields) > 3 else ""
+        tags = ", ".join(f for f in fields[4:] if f)
+
+        key = (name.casefold(), value.casefold())
+        if key in seen:
+            errors.append((number, f"Same part as line {seen[key]} - combine them."))
+            continue
+        seen[key] = number
+
+        rows.append(
+            {
+                "name": name,
+                "qty_owned": qty,
+                "value": value[:50],
+                "package": package[:50],
+                "tags": tags[:200],
+            }
+        )
+
+    return rows, errors
+
+
+class BulkPartImportForm(forms.Form):
+    """Paste a whole bin in at once instead of one form at a time."""
+
+    text = forms.CharField(
+        label="One part per line",
+        widget=forms.Textarea(
+            attrs={
+                "rows": 14,
+                "autofocus": True,
+                "placeholder": (
+                    "10k resistor, 180, 10k, through-hole, passive, resistor\n"
+                    "DHT22, 4\n"
+                    "ESP32 devkit, 2, , module, mcu, wifi"
+                ),
+            }
+        ),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        self.rows = []
+
+    def clean_text(self):
+        text = self.cleaned_data["text"]
+        rows, errors = parse_parts_text(text)
+
+        if not errors and not rows:
+            raise forms.ValidationError("Nothing to import.")
+
+        # Nothing is created unless every line is good. A half-applied paste is
+        # worse than a rejected one - you can't tell what landed.
+        if self.user is not None:
+            existing = {
+                (name.casefold(), value.casefold())
+                for name, value in Part.objects.filter(user=self.user).values_list(
+                    "name", "value"
+                )
+            }
+            for row in rows:
+                key = (row["name"].casefold(), row["value"].casefold())
+                if key in existing:
+                    errors.append((0, f"{row['name']} is already in your parts list."))
+
+        if errors:
+            raise forms.ValidationError(
+                [
+                    f"Line {number}: {message}" if number else message
+                    for number, message in errors
+                ]
+            )
+
+        self.rows = rows
+        return text
+
+    def save(self):
+        parts = [Part(user=self.user, **row) for row in self.rows]
+        return Part.objects.bulk_create(parts)
+
+
+class AddStockForm(forms.Form):
+    """Recording a delivery, not correcting a miscount.
+
+    Corrections belong on the edit form where you set the absolute number;
+    this only ever goes up, so there is no ambiguity about which you meant.
+    """
+
+    qty = forms.IntegerField(
+        min_value=1,
+        label="How many arrived",
+        widget=forms.NumberInput(attrs={"min": 1, "style": "width:6em"}),
+    )
+
+
 class PartForm(forms.ModelForm):
     class Meta:
         model = Part
