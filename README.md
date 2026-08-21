@@ -176,7 +176,7 @@ ruff check .
 ruff format --check .
 ```
 
-A hundred and fifty of them, mostly on the arithmetic. The invariant that soldered and
+A hundred and seventy-three of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
@@ -194,6 +194,25 @@ the nav goes there; **Bench** is the dashboard.
 list totalling shortfall per part across every live build, and the parts you're
 closest to running out of. The parts table itself lives at `/parts/` and sorts
 on any column, and availability ascending answers "what am I nearly out of".
+
+## Duplicates
+
+`value` is free text, so `10k`, `10 K` and `10kohm` are one resistor to you and
+three rows to a database, with your count split across all three.
+
+`match_key()` compares parts with case, spacing, hyphens, micro signs and the
+word "ohm" ignored. Full stops are deliberately kept: stripping them would fold
+`4.7k` into `47k` and invent a duplicate that isn't one, which is worse than
+missing a real one. A word boundary keeps a part named "Ohmite" intact.
+
+The importer refuses near-duplicates, a part's own page warns when it spots a
+twin, and `/parts/duplicates/` lists every group.
+
+Merging folds one part into another and deletes it. Quantities and want lists
+add up, project lines combine where both parts appear in the same build, and
+the history moves across with every `balance_after` recomputed in date order,
+because two interleaved running balances would be nonsense and the ledger has
+to keep reconciling.
 
 ## Getting a bin in
 

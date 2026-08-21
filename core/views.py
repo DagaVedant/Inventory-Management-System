@@ -24,6 +24,7 @@ from .forms import (
     AddStockForm,
     AllocationForm,
     BulkPartImportForm,
+    MergePartForm,
     PartForm,
     SignupForm,
     TeardownFormSet,
@@ -315,6 +316,14 @@ class PartDetailView(OwnedMixin, DetailView):
         context["total_lost"] = sum(line.lost for line in lines)
         context["add_stock_form"] = AddStockForm()
         context["want_form"] = WantToBuyForm(initial={"qty": self.object.qty_to_buy})
+        key = self.object.match_key()
+        context["twins"] = [
+            part
+            for part in Part.objects.filter(user=self.request.user).exclude(
+                pk=self.object.pk
+            )
+            if part.match_key() == key
+        ]
         context["movements"] = self.object.movements.select_related("project")[:25]
         context["movement_count"] = self.object.movements.count()
         return context
@@ -347,6 +356,70 @@ def part_add_stock(request, pk):
         messages.error(request, "Enter how many arrived.")
 
     return redirect("part_detail", pk=part.pk)
+
+
+@login_required
+def part_duplicates(request):
+    """Parts that look like the same component written two ways."""
+    parts = list(
+        Part.objects.filter(user=request.user).with_availability().order_by("name")
+    )
+
+    groups = {}
+    for part in parts:
+        groups.setdefault(part.match_key(), []).append(part)
+
+    duplicates = [members for members in groups.values() if len(members) > 1]
+    duplicates.sort(key=lambda members: members[0].name)
+
+    return render(
+        request,
+        "core/part_duplicates.html",
+        {
+            "duplicates": duplicates,
+            "checked": len(parts),
+        },
+    )
+
+
+@login_required
+def part_merge(request, pk):
+    """Fold one part into another. Confirmation on GET, the merge on POST."""
+    source = get_object_or_404(Part, pk=pk, user=request.user)
+
+    if request.method == "POST":
+        form = MergePartForm(request.POST, source=source)
+        if form.is_valid():
+            target = form.cleaned_data["target"]
+            name_was = str(source)
+            try:
+                source.merge_into(target)
+            except ValidationError as exc:
+                for message in exc.messages:
+                    messages.error(request, message)
+            else:
+                messages.success(request, f"Merged {name_was} into {target}.")
+                return redirect("part_detail", pk=target.pk)
+    else:
+        form = MergePartForm(source=source)
+
+    likely = [
+        part
+        for part in Part.objects.filter(user=request.user).exclude(pk=source.pk)
+        if part.match_key() == source.match_key()
+    ]
+
+    return render(
+        request,
+        "core/part_merge.html",
+        {
+            "source": source,
+            "form": form,
+            "likely": likely,
+            "line_count": source.allocations.count(),
+            "history_count": source.movements.count(),
+        },
+    )
 
 
 @login_required
