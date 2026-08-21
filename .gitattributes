@@ -1,0 +1,9 @@
+# Normalise line endings so Windows checkouts stop warning on every commit
+# and the repo stores one consistent form.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

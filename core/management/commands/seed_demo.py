@@ -18,45 +18,49 @@ from core.models import Part, Project, ProjectPart
 
 User = get_user_model()
 
+# fmt: off
+# Hand-aligned on purpose: as columns this scans in one pass, and letting the
+# formatter wrap it turns 36 readable rows into 200 lines of noise.
 PARTS = [
     # name, value, package, pins, voltage, qty, tags
-    ("ESP32 devkit v1", "", "module", 30, "5V", 2, "mcu, wifi, bluetooth"),
-    ("Arduino Nano", "", "module", 30, "5V", 4, "mcu"),
-    ("Raspberry Pi Pico", "", "module", 40, "3V3", 3, "mcu, rp2040"),
-    ("DHT22 temperature/humidity", "", "module", 4, "3V3-5V", 4, "sensor, temperature, humidity"),
-    ("BMP280 pressure", "", "module", 4, "3V3", 3, "sensor, pressure, i2c"),
-    ("MPU-6050 6-axis IMU", "", "module", 8, "3V3-5V", 3, "sensor, imu, i2c"),
-    ("HC-SR04 ultrasonic", "", "module", 4, "5V", 5, "sensor, distance"),
-    ("LDR photoresistor", "", "through-hole", 2, "", 22, "sensor, light"),
-    ("DS18B20 temperature", "", "TO-92", 3, "3V3-5V", 6, "sensor, temperature, onewire"),
-    ("SSD1306 OLED 128x64", "", "module", 4, "3V3-5V", 2, "display, i2c"),
-    ("16x2 character LCD", "", "module", 16, "5V", 2, "display"),
-    ("WS2812B LED strip 1m", "", "strip", 3, "5V", 3, "led, addressable"),
-    ("Resistor", "220R", "through-hole", 2, "", 140, "passive, resistor"),
-    ("Resistor", "1k", "through-hole", 2, "", 160, "passive, resistor"),
-    ("Resistor", "4.7k", "through-hole", 2, "", 95, "passive, resistor, i2c-pullup"),
-    ("Resistor", "10k", "through-hole", 2, "", 180, "passive, resistor"),
-    ("Ceramic capacitor", "100nF", "through-hole", 2, "", 120, "passive, capacitor, decoupling"),
-    ("Electrolytic capacitor", "470uF", "through-hole", 2, "16V", 24, "passive, capacitor"),
-    ("Electrolytic capacitor", "1000uF", "through-hole", 2, "25V", 12, "passive, capacitor"),
-    ("LED", "red 5mm", "through-hole", 2, "", 60, "led, indicator"),
-    ("LED", "green 5mm", "through-hole", 2, "", 45, "led, indicator"),
-    ("LED", "blue 5mm", "through-hole", 2, "", 30, "led, indicator"),
-    ("AMS1117-3.3 regulator", "", "SOT-223", 3, "3V3", 8, "power, regulator, 3v3"),
-    ("LM7805 regulator", "", "TO-220", 3, "5V", 5, "power, regulator, 5v"),
-    ("2N2222 transistor", "", "TO-92", 3, "", 30, "transistor, npn"),
-    ("IRLZ44N MOSFET", "", "TO-220", 3, "", 8, "transistor, mosfet, logic-level"),
-    ("1N4148 diode", "", "through-hole", 2, "", 50, "diode"),
-    ("1N4007 diode", "", "through-hole", 2, "1000V", 35, "diode, rectifier"),
-    ("Tactile push button", "", "through-hole", 4, "", 40, "button, input"),
-    ("Rotary encoder KY-040", "", "module", 5, "5V", 4, "input, encoder"),
-    ("Micro servo SG90", "", "module", 3, "5V", 6, "actuator, servo"),
-    ("28BYJ-48 stepper + driver", "", "module", 5, "5V", 3, "actuator, stepper"),
-    ("Piezo buzzer", "", "through-hole", 2, "5V", 9, "audio, buzzer"),
-    ("Perfboard 70x90mm", "", "board", 0, "", 6, "board, perfboard"),
-    ("Screw terminal 2-way", "", "through-hole", 2, "", 28, "connector"),
-    ("Pin header 40-way", "", "strip", 40, "", 15, "connector, header"),
+    ("ESP32 devkit v1",            "",       "module",       30, "5V",     2, "mcu, wifi, bluetooth"),
+    ("Arduino Nano",               "",       "module",       30, "5V",     4, "mcu"),
+    ("Raspberry Pi Pico",          "",       "module",       40, "3V3",    3, "mcu, rp2040"),
+    ("DHT22 temp/humidity",        "",       "module",        4, "3V3-5V", 4, "sensor, temperature"),
+    ("BMP280 pressure",            "",       "module",        4, "3V3",    3, "sensor, pressure, i2c"),
+    ("MPU-6050 6-axis IMU",        "",       "module",        8, "3V3-5V", 3, "sensor, imu, i2c"),
+    ("HC-SR04 ultrasonic",         "",       "module",        4, "5V",     5, "sensor, distance"),
+    ("LDR photoresistor",          "",       "through-hole",  2, "",      22, "sensor, light"),
+    ("DS18B20 temperature",        "",       "TO-92",         3, "3V3-5V", 6, "sensor, onewire"),
+    ("SSD1306 OLED 128x64",        "",       "module",        4, "3V3-5V", 2, "display, i2c"),
+    ("16x2 character LCD",         "",       "module",       16, "5V",     2, "display"),
+    ("WS2812B LED strip 1m",       "",       "strip",         3, "5V",     3, "led, addressable"),
+    ("Resistor",                   "220R",   "through-hole",  2, "",     140, "passive, resistor"),
+    ("Resistor",                   "1k",     "through-hole",  2, "",     160, "passive, resistor"),
+    ("Resistor",                   "4.7k",   "through-hole",  2, "",      95, "passive, i2c-pullup"),
+    ("Resistor",                   "10k",    "through-hole",  2, "",     180, "passive, resistor"),
+    ("Ceramic capacitor",          "100nF",  "through-hole",  2, "",     120, "passive, decoupling"),
+    ("Electrolytic capacitor",     "470uF",  "through-hole",  2, "16V",   24, "passive, capacitor"),
+    ("Electrolytic capacitor",     "1000uF", "through-hole",  2, "25V",   12, "passive, capacitor"),
+    ("LED",                        "red 5mm",   "through-hole", 2, "",    60, "led, indicator"),
+    ("LED",                        "green 5mm", "through-hole", 2, "",    45, "led, indicator"),
+    ("LED",                        "blue 5mm",  "through-hole", 2, "",    30, "led, indicator"),
+    ("AMS1117-3.3 regulator",      "",       "SOT-223",       3, "3V3",    8, "power, regulator"),
+    ("LM7805 regulator",           "",       "TO-220",        3, "5V",     5, "power, regulator"),
+    ("2N2222 transistor",          "",       "TO-92",         3, "",      30, "transistor, npn"),
+    ("IRLZ44N MOSFET",             "",       "TO-220",        3, "",       8, "transistor, mosfet"),
+    ("1N4148 diode",               "",       "through-hole",  2, "",      50, "diode"),
+    ("1N4007 diode",               "",       "through-hole",  2, "1000V", 35, "diode, rectifier"),
+    ("Tactile push button",        "",       "through-hole",  4, "",      40, "button, input"),
+    ("Rotary encoder KY-040",      "",       "module",        5, "5V",     4, "input, encoder"),
+    ("Micro servo SG90",           "",       "module",        3, "5V",     6, "actuator, servo"),
+    ("28BYJ-48 stepper + driver",  "",       "module",        5, "5V",     3, "actuator, stepper"),
+    ("Piezo buzzer",               "",       "through-hole",  2, "5V",     9, "audio, buzzer"),
+    ("Perfboard 70x90mm",          "",       "board",         0, "",       6, "board, perfboard"),
+    ("Screw terminal 2-way",       "",       "through-hole",  2, "",      28, "connector"),
+    ("Pin header 40-way",          "",       "strip",        40, "",      15, "connector, header"),
 ]
+# fmt: on
 
 
 class Command(BaseCommand):
@@ -115,7 +119,7 @@ class Command(BaseCommand):
         )
         for key, qty in [
             ("ESP32 devkit v1", 1),
-            ("DHT22 temperature/humidity", 1),
+            ("DHT22 temp/humidity", 1),
             ("BMP280 pressure", 1),
             ("DS18B20 temperature", 2),
             ("Resistor 4.7k", 3),
@@ -208,7 +212,8 @@ class Command(BaseCommand):
         matrix.tear_down(outcomes)
 
         committed = [
-            p for p in Part.objects.filter(user=user).with_availability()
+            p
+            for p in Part.objects.filter(user=user).with_availability()
             if p.available == 0
         ]
         self.stdout.write(

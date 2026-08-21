@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Not a secret: this only exists so settings.py can start. The real key
+      # lives in the deployment environment.
+      # Long enough to satisfy check --deploy's 50-character minimum.
+      SECRET_KEY: ci-only-not-a-real-secret-just-long-enough-for-the-deploy-check
+      DEBUG: "True"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Matches the runtime Railway builds against.
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format check
+        run: ruff format --check .
+
+      - name: Django system checks
+        run: python manage.py check
+
+      - name: Missing migrations
+        # Catches a model changed without makemigrations, which would deploy
+        # fine and then fail at runtime against the real database.
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Tests
+        run: python manage.py test core
+
+      - name: Deployment checklist
+        # Runs as production would see it, so a security setting can't quietly
+        # regress. EMAIL_HOST is set so the mail backend check passes here.
+        env:
+          DEBUG: "False"
+          RAILWAY_PUBLIC_DOMAIN: ci.example.com
+          EMAIL_HOST: smtp.example.com
+        run: python manage.py check --deploy

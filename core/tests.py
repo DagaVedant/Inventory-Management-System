@@ -1,4 +1,4 @@
-from datetime import datetime, timezone as dt_timezone
+from datetime import UTC, datetime
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -299,8 +299,14 @@ class ViewTests(BaseCase):
         response = self.client.post(
             reverse("part_create"),
             {
-                "name": "DHT22", "qty_owned": 3, "value": "", "package": "",
-                "pin_count": "", "voltage": "", "tags": "", "notes": "",
+                "name": "DHT22",
+                "qty_owned": 3,
+                "value": "",
+                "package": "",
+                "pin_count": "",
+                "voltage": "",
+                "tags": "",
+                "notes": "",
                 "_addanother": "1",
             },
         )
@@ -311,8 +317,14 @@ class ViewTests(BaseCase):
         self.client.post(
             reverse("part_create"),
             {
-                "name": "DHT22", "qty_owned": 3, "value": "", "package": "",
-                "pin_count": "", "voltage": "", "tags": "", "notes": "",
+                "name": "DHT22",
+                "qty_owned": 3,
+                "value": "",
+                "package": "",
+                "pin_count": "",
+                "voltage": "",
+                "tags": "",
+                "notes": "",
             },
         )
         self.assertEqual(Part.objects.get(name="DHT22").user, self.user)
@@ -492,8 +504,10 @@ class SignupTests(TestCase):
         response = self.client.post(self.url, self.credentials())
         self.assertRedirects(response, reverse("part_list"))
         self.assertTrue(User.objects.filter(username="newcomer").exists())
-        self.assertEqual(int(self.client.session["_auth_user_id"]),
-                         User.objects.get(username="newcomer").pk)
+        self.assertEqual(
+            int(self.client.session["_auth_user_id"]),
+            User.objects.get(username="newcomer").pk,
+        )
 
     def test_a_new_account_starts_empty(self):
         owner = User.objects.create_user("owner", "o@e.com", "pw12345!")
@@ -591,7 +605,7 @@ class PresentationTests(BaseCase):
         """A project created late evening Eastern must not show tomorrow."""
         proj = self.project()
         Project.objects.filter(pk=proj.pk).update(
-            created_at=datetime(2026, 8, 20, 1, 30, tzinfo=dt_timezone.utc)
+            created_at=datetime(2026, 8, 20, 1, 30, tzinfo=UTC)
         )
         response = self.client.get(reverse("project_list"))
         # 01:30 UTC on the 20th is 21:30 on the 19th in New York.
@@ -601,6 +615,19 @@ class PresentationTests(BaseCase):
     def test_pages_declare_a_favicon(self):
         response = self.client.get(reverse("part_list"))
         self.assertContains(response, "favicon.svg")
+
+
+class HealthCheckTests(TestCase):
+    def test_healthz_is_open_and_reports_ok(self):
+        response = Client().get(reverse("healthz"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "ok")
+
+    def test_healthz_does_not_require_login(self):
+        # Everything else on the site bounces anonymous users to the login
+        # page; a probe that got a 302 would look unhealthy.
+        response = Client().get(reverse("healthz"))
+        self.assertNotIn("Location", response.headers)
 
 
 class PasswordResetTests(TestCase):

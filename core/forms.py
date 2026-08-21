@@ -129,7 +129,7 @@ class AllocationForm(forms.Form):
             # Runs the availability guard on the resulting total.
             line.full_clean(validate_unique=False, validate_constraints=False)
         except ValidationError as exc:
-            raise forms.ValidationError(exc.messages)
+            raise forms.ValidationError(exc.messages) from exc
 
         cleaned["line"] = line
         return cleaned
@@ -145,15 +145,21 @@ class TeardownLineForm(forms.Form):
 
     line_id = forms.IntegerField(widget=forms.HiddenInput)
     qty_returned = forms.IntegerField(
-        min_value=0, initial=0, label="Returned",
+        min_value=0,
+        initial=0,
+        label="Returned",
         widget=forms.NumberInput(attrs={"min": 0, "style": "width:5em"}),
     )
     qty_soldered = forms.IntegerField(
-        min_value=0, initial=0, label="Soldered in",
+        min_value=0,
+        initial=0,
+        label="Soldered in",
         widget=forms.NumberInput(attrs={"min": 0, "style": "width:5em"}),
     )
     qty_broken = forms.IntegerField(
-        min_value=0, initial=0, label="Broken",
+        min_value=0,
+        initial=0,
+        label="Broken",
         widget=forms.NumberInput(attrs={"min": 0, "style": "width:5em"}),
     )
 
@@ -167,7 +173,7 @@ class TeardownLineForm(forms.Form):
         except ProjectPart.DoesNotExist:
             raise forms.ValidationError(
                 "That allocation line no longer exists - reload the page."
-            )
+            ) from None
 
         cleaned["line"] = line
 
