@@ -109,6 +109,45 @@
   <p class="muted">No finished builds have used it yet.</p>
 {% endif %}
 
+<h2>History</h2>
+{% if movements %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">When</th>
+      <th scope="col">What</th>
+      <th scope="col" class="num">Change</th>
+      <th scope="col" class="num">Left</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for movement in movements %}
+    <tr>
+      <td class="muted">{{ movement.created_at|date:"j M Y, H:i" }}</td>
+      <td>
+        {{ movement.get_reason_display }}
+        {% if movement.project %}
+          <a href="{% url 'project_detail' movement.project.pk %}">{{ movement.project.name }}</a>
+        {% endif %}
+        {% if movement.note %}<br><small class="muted">{{ movement.note }}</small>{% endif %}
+      </td>
+      <td class="num {% if movement.delta < 0 %}zero{% endif %}">
+        {% if movement.delta > 0 %}+{% endif %}{{ movement.delta }}
+      </td>
+      <td class="num muted">{{ movement.balance_after }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% if movement_count > 25 %}
+  <p class="muted"><small>Showing the last 25 of {{ movement_count }}.</small></p>
+{% endif %}
+{% else %}
+  <p class="muted">Nothing recorded yet.</p>
+{% endif %}
+
 {% if part.notes %}
   <h2>Notes</h2>
   <p>{{ part.notes|linebreaks }}</p>

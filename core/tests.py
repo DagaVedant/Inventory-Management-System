@@ -9,7 +9,13 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse, reverse_lazy
 
 from .forms import parse_parts_text
-from .models import Part, Project, ProjectPart, ProjectStatus
+from .models import (
+    MovementReason,
+    Part,
+    Project,
+    ProjectPart,
+    ProjectStatus,
+)
 
 User = get_user_model()
 
@@ -853,6 +859,173 @@ class AddStockTests(BaseCase):
         self.assertEqual(response.status_code, 404)
         theirs.refresh_from_db()
         self.assertEqual(theirs.qty_owned, 1)
+
+
+class StockLedgerTests(BaseCase):
+    """Every change to qty_owned has to say where it came from."""
+
+    def reasons(self, part):
+        """Movements after the opening balance, newest first."""
+        return [
+            m.reason for m in part.movements.all() if m.reason != MovementReason.OPENING
+        ]
+
+    def opening(self, part):
+        return part.movements.filter(reason=MovementReason.OPENING)
+
+    def test_a_new_part_opens_its_own_history(self):
+        p = self.part(qty=10)
+        self.assertEqual(self.opening(p).get().delta, 10)
+        self.assertEqual(self.opening(p).get().balance_after, 10)
+
+    def test_adjusting_records_the_change_and_the_running_balance(self):
+        p = self.part(qty=10)
+        p.adjust_stock(50, MovementReason.PURCHASE)
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 60)
+
+        movement = p.movements.first()
+        self.assertEqual(movement.delta, 50)
+        self.assertEqual(movement.balance_after, 60)
+        self.assertEqual(movement.reason, MovementReason.PURCHASE)
+
+    def test_a_zero_change_is_not_recorded(self):
+        p = self.part(qty=10)
+        self.assertIsNone(p.adjust_stock(0, MovementReason.PURCHASE))
+        self.assertEqual(self.reasons(p), [])
+
+    def test_cannot_go_below_zero(self):
+        p = self.part(qty=3)
+        with self.assertRaises(ValidationError):
+            p.adjust_stock(-5, MovementReason.CORRECTION)
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 3)
+        self.assertEqual(self.reasons(p), [])
+
+    def test_cannot_go_below_what_projects_are_holding(self):
+        p = self.part(qty=10)
+        ProjectPart.objects.create(project=self.project(), part=p, qty_allocated=6)
+        with self.assertRaises(ValidationError):
+            p.adjust_stock(-7, MovementReason.CORRECTION)
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 10)
+
+    def test_set_stock_records_the_difference_not_the_total(self):
+        p = self.part(qty=10)
+        p.set_stock(7)
+        self.assertEqual(p.movements.first().delta, -3)
+        self.assertEqual(p.movements.first().balance_after, 7)
+
+    def test_teardown_losses_name_the_project_that_ate_them(self):
+        p = self.part(qty=10)
+        proj = self.project("Doomed build")
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        proj.tear_down([(line, 1, 2, 1)])
+
+        movement = p.movements.first()
+        self.assertEqual(movement.delta, -3)
+        self.assertEqual(movement.reason, MovementReason.TEARDOWN)
+        self.assertEqual(movement.project, proj)
+        self.assertIn("2 soldered in, 1 broken", movement.note)
+
+    def test_a_rejected_teardown_leaves_no_trace(self):
+        p = self.part(qty=10)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        with self.assertRaises(ValidationError):
+            proj.tear_down([(line, 0, 1, 1)])  # doesn't add up to 4
+        self.assertEqual(self.reasons(p), [])
+
+    def test_adding_a_part_by_hand_opens_its_history(self):
+        self.client.post(
+            reverse("part_create"),
+            {
+                "name": "DHT22",
+                "qty_owned": 5,
+                "value": "",
+                "package": "",
+                "pin_count": "",
+                "voltage": "",
+                "tags": "",
+                "notes": "",
+            },
+        )
+        part = Part.objects.get(name="DHT22")
+        self.assertEqual(self.reasons(part), [])
+        self.assertEqual(self.opening(part).get().delta, 5)
+
+    def test_importing_opens_a_history_for_each_part(self):
+        self.client.post(reverse("part_import"), {"text": "DHT22, 4\nBMP280, 2"})
+        for name, qty in [("DHT22", 4), ("BMP280", 2)]:
+            part = Part.objects.get(name=name)
+            self.assertEqual(self.reasons(part), [])
+            self.assertEqual(self.opening(part).get().delta, qty)
+
+    def test_add_stock_is_recorded_as_a_delivery(self):
+        p = self.part(qty=10)
+        self.client.post(reverse("part_add_stock", args=[p.pk]), {"qty": 25})
+        self.assertEqual(self.reasons(p), [MovementReason.PURCHASE])
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 35)
+
+    def test_editing_the_quantity_is_recorded_as_a_recount(self):
+        p = self.part(qty=10)
+        self.client.post(
+            reverse("part_update", args=[p.pk]),
+            {
+                "name": p.name,
+                "qty_owned": 8,
+                "value": "",
+                "package": "",
+                "pin_count": "",
+                "voltage": "",
+                "tags": "",
+                "notes": "",
+            },
+        )
+        p.refresh_from_db()
+        self.assertEqual(p.qty_owned, 8)
+        self.assertEqual(self.reasons(p), [MovementReason.CORRECTION])
+        self.assertEqual(p.movements.first().delta, -2)
+
+    def test_editing_other_fields_does_not_invent_a_movement(self):
+        p = self.part(qty=10)
+        self.client.post(
+            reverse("part_update", args=[p.pk]),
+            {
+                "name": p.name,
+                "qty_owned": 10,
+                "value": "10k",
+                "package": "",
+                "pin_count": "",
+                "voltage": "",
+                "tags": "",
+                "notes": "",
+            },
+        )
+        p.refresh_from_db()
+        self.assertEqual(p.value, "10k")
+        self.assertEqual(self.reasons(p), [])
+
+    def test_the_history_appears_on_the_part_page(self):
+        p = self.part(qty=10)
+        p.adjust_stock(5, MovementReason.PURCHASE)
+        response = self.client.get(reverse("part_detail", args=[p.pk]))
+        self.assertContains(response, "History")
+        self.assertContains(response, "Bought or found")
+
+    def test_the_ledger_reconciles_with_the_stored_quantity(self):
+        p = self.part(qty=10)
+        p.adjust_stock(5, MovementReason.PURCHASE)
+        p.set_stock(12)
+        proj = self.project()
+        line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
+        proj.tear_down([(line, 2, 1, 1)])
+
+        p.refresh_from_db()
+        ledger = sum(p.movements.values_list("delta", flat=True))
+        self.assertEqual(ledger, p.qty_owned)
+        self.assertEqual(p.movements.first().balance_after, p.qty_owned)
 
 
 class SortingTests(BaseCase):
