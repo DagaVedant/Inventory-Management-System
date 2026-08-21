@@ -41,7 +41,8 @@ available  owned minus held, the number you actually care about
 
 - **teardown**: when a build is done, say what happened to every part. returned,
   soldered in, or broken. only the last two leave your inventory
-- **reopen**: teardown can be undone. it used to be permanent, on a 2 click button
+- **reopen**: teardown is reversible. two clicks puts the project back on
+  the bench with every quantity exactly where it was
 - **shopping list**: what your live builds asked for and couldn't get, plus
   anything you flagged yourself, totalled per part
 - **history**: every change to a quantity is logged with the balance it produced
