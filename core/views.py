@@ -28,7 +28,14 @@ from .forms import (
     SignupForm,
     TeardownFormSet,
 )
-from .models import Part, Project, ProjectPart, ProjectStatus
+from .models import (
+    MovementReason,
+    Part,
+    Project,
+    ProjectPart,
+    ProjectStatus,
+    StockMovement,
+)
 
 # ----------------------------------------------------------------- accounts
 
@@ -244,6 +251,7 @@ class PartCreateView(OwnedMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.user = self.request.user
+        # Part.save() opens the ledger for us.
         response = super().form_valid(form)
         messages.success(self.request, f"Added {self.object}.")
         return response
@@ -277,6 +285,8 @@ class PartDetailView(OwnedMixin, DetailView):
         context["history"] = [line for line in lines if not line.project.is_active]
         context["total_lost"] = sum(line.lost for line in lines)
         context["add_stock_form"] = AddStockForm()
+        context["movements"] = self.object.movements.select_related("project")[:25]
+        context["movement_count"] = self.object.movements.count()
         return context
 
 
@@ -289,10 +299,7 @@ def part_add_stock(request, pk):
 
     if form.is_valid():
         qty = form.cleaned_data["qty"]
-        # F() rather than read-modify-write, so two deliveries logged at once
-        # can't overwrite each other.
-        Part.objects.filter(pk=part.pk).update(qty_owned=F("qty_owned") + qty)
-        part.refresh_from_db()
+        part.adjust_stock(qty, MovementReason.PURCHASE)
         messages.success(
             request, f"Added {qty}. You now own {part.qty_owned} × {part.name}."
         )
@@ -314,6 +321,19 @@ def part_import(request):
         form = BulkPartImportForm(request.POST, user=request.user)
         if form.is_valid():
             created = form.save()
+            StockMovement.objects.bulk_create(
+                [
+                    StockMovement(
+                        part=part,
+                        delta=part.qty_owned,
+                        balance_after=part.qty_owned,
+                        reason=MovementReason.OPENING,
+                        note="Imported.",
+                    )
+                    for part in created
+                    if part.qty_owned
+                ]
+            )
             messages.success(request, f"Added {len(created)} parts.")
             return redirect("part_list")
     else:
@@ -328,8 +348,22 @@ class PartUpdateView(OwnedMixin, UpdateView):
     template_name = "core/part_form.html"
 
     def form_valid(self, form):
+        # Editing the quantity here means "I counted, this is the real number",
+        # so it goes into the ledger as a recount rather than changing silently.
+        was = Part.objects.get(pk=self.object.pk).qty_owned
+        now = form.cleaned_data["qty_owned"]
+        form.instance.qty_owned = was  # let adjust_stock move it, not the save
+        response = super().form_valid(form)
+
+        if now != was:
+            try:
+                self.object.set_stock(now, note="Edited on the part form.")
+            except ValidationError as exc:
+                form.add_error("qty_owned", exc.messages)
+                return self.form_invalid(form)
+
         messages.success(self.request, f"Saved {form.instance}.")
-        return super().form_valid(form)
+        return response
 
     def get_success_url(self):
         return reverse("part_list")

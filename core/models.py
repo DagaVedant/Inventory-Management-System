@@ -11,6 +11,15 @@ class ProjectStatus(models.TextChoices):
     ARCHIVED = "archived", "Archived"
 
 
+class MovementReason(models.TextChoices):
+    OPENING = "opening", "Opening balance"
+    PURCHASE = "purchase", "Bought or found"
+    CORRECTION = "correction", "Recount"
+    TEARDOWN = "teardown", "Consumed by a teardown"
+    REOPEN = "reopen", "Teardown reversed"
+    MERGE = "merge", "Merged from a duplicate"
+
+
 class PartQuerySet(models.QuerySet):
     def with_availability(self):
         """Annotate `held` and `available` in a single query.
@@ -67,6 +76,28 @@ class Part(models.Model):
             bits.append(self.package)
         return " · ".join(bits)
 
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        """Opening the history at the same moment the part exists.
+
+        A part created with a quantity has to explain where that quantity came
+        from, or its ledger starts one line short and every later reconciliation
+        reports drift that was never real. Doing it here rather than in the
+        views means nothing can forget: the seed command, the admin and the
+        shell all get it. bulk_create() skips save() by design, so the importer
+        writes its own opening lines.
+        """
+        creating = self._state.adding
+        super().save(*args, **kwargs)
+        if creating and self.qty_owned:
+            StockMovement.objects.create(
+                part=self,
+                delta=self.qty_owned,
+                balance_after=self.qty_owned,
+                reason=MovementReason.OPENING,
+                note="Opening balance.",
+            )
+
     def compute_held(self):
         """How many are locked inside active projects right now."""
         return self.allocations.filter(project__status=ProjectStatus.ACTIVE).aggregate(
@@ -99,6 +130,52 @@ class Part(models.Model):
                         )
                     }
                 )
+
+    @transaction.atomic
+    def adjust_stock(self, delta, reason, project=None, note=""):
+        """The only sanctioned way to change qty_owned.
+
+        qty_owned stays a stored column because every list page reads it, but
+        nothing may move it except this method, which writes a StockMovement in
+        the same transaction. That is what makes "the number is wrong and I
+        can't tell why" answerable.
+        """
+        if delta == 0:
+            return None
+
+        # Lock the row: two deliveries logged at once must not both read the
+        # same balance and write the same balance_after.
+        locked = Part.objects.select_for_update().get(pk=self.pk)
+        new_total = locked.qty_owned + delta
+
+        if new_total < 0:
+            raise ValidationError(
+                f"That would take {locked.name} to {new_total}. "
+                f"You only own {locked.qty_owned}."
+            )
+
+        held = locked.compute_held()
+        if new_total < held:
+            raise ValidationError(
+                f"Can't go below {held}: that many {locked.name} are held by "
+                f"active projects."
+            )
+
+        Part.objects.filter(pk=locked.pk).update(qty_owned=new_total)
+        self.qty_owned = new_total
+
+        return StockMovement.objects.create(
+            part=locked,
+            delta=delta,
+            balance_after=new_total,
+            reason=reason,
+            project=project,
+            note=note,
+        )
+
+    def set_stock(self, new_total, reason=MovementReason.CORRECTION, note=""):
+        """Set an absolute quantity. Recounts work this way; deliveries don't."""
+        return self.adjust_stock(new_total - self.qty_owned, reason, note=note)
 
     def tag_list(self):
         return [t.strip() for t in self.tags.split(",") if t.strip()]
@@ -173,8 +250,13 @@ class Project(models.Model):
 
             lost = soldered + broken
             if lost:
-                Part.objects.filter(pk=line.part_id).update(
-                    qty_owned=models.F("qty_owned") - lost
+                # Through adjust_stock so the loss lands in the ledger with the
+                # project that caused it, rather than the number just dropping.
+                line.part.adjust_stock(
+                    -lost,
+                    MovementReason.TEARDOWN,
+                    project=self,
+                    note=f"{soldered} soldered in, {broken} broken",
                 )
 
         self.status = ProjectStatus.ARCHIVED
@@ -188,6 +270,42 @@ class Project(models.Model):
             soldered=models.Sum("qty_soldered"),
             broken=models.Sum("qty_broken"),
         )
+
+
+class StockMovement(models.Model):
+    """One line of history for a part's quantity.
+
+    Written only by Part.adjust_stock(). `balance_after` is stored rather than
+    recomputed so the history reads like a bank statement, and so drift between
+    the ledger and qty_owned is visible instead of theoretical.
+    """
+
+    part = models.ForeignKey(
+        Part,
+        on_delete=models.CASCADE,
+        related_name="movements",
+    )
+    delta = models.IntegerField(help_text="Signed. Negative means it left.")
+    balance_after = models.PositiveIntegerField()
+    reason = models.CharField(max_length=20, choices=MovementReason.choices)
+    project = models.ForeignKey(
+        "Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="movements",
+        help_text="Set when a teardown caused this.",
+    )
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        indexes = [models.Index(fields=["part", "-created_at"])]
+
+    def __str__(self):
+        sign = "+" if self.delta > 0 else ""
+        return f"{sign}{self.delta} {self.part} ({self.get_reason_display()})"
 
 
 class ProjectPart(models.Model):

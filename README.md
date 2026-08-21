@@ -76,6 +76,27 @@ Short parts aren't held by anyone. They don't exist yet. The bench page totals
 them per part across every live build, because you buy per part, not per
 project.
 
+### Where a number came from
+
+Every change to `qty_owned` writes a `StockMovement` saying what happened and
+what the balance became: opening balance, delivery, recount, teardown loss.
+Teardown losses name the project that ate them. A part's own page shows the
+whole history.
+
+`qty_owned` stays a stored column because every list page reads it, but nothing
+may move it except `Part.adjust_stock()`, which writes the movement in the same
+transaction. `Part.save()` opens the ledger when a part is created, so a
+quantity can't exist without a line explaining it.
+
+```bash
+python manage.py check_stock          # do the two agree?
+python manage.py check_stock --fix    # write a movement explaining any gap
+```
+
+Those can only disagree if something changed a quantity without going through
+`adjust_stock()`, which would be a bug. The command is how you find out rather
+than assuming it never happened.
+
 ### What the database enforces
 
 Not just the forms. These are `CheckConstraint`s and a `UniqueConstraint`, so
@@ -135,7 +156,7 @@ ruff check .
 ruff format --check .
 ```
 
-A hundred and fourteen of them, mostly on the arithmetic. The invariant that soldered and
+A hundred and thirty-one of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
