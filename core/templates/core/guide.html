@@ -128,6 +128,14 @@ ESP32 devkit, 2, , module, mcu, wifi</code></pre>
   because only the teardown itself is reversed.
 </p>
 
+<h2>Where a number came from</h2>
+<p>
+  Every change to a quantity is recorded: opening balance, delivery, recount,
+  and what a teardown consumed. A part's page shows the whole run, with the
+  balance after each one, so "that number looks wrong" is a question with an
+  answer rather than a shrug.
+</p>
+
 <h2>Where things live</h2>
 <figure>
 <table>
@@ -147,8 +155,13 @@ ESP32 devkit, 2, , module, mcu, wifi</code></pre>
     </tr>
     <tr>
       <th scope="row">A part's own page</th>
-      <td>Click any part name. Shows which builds are holding it and every
-          finished build that ate some.</td>
+      <td>Click any part name. Shows which builds are holding it, every
+          finished build that ate some, and its full history.</td>
+    </tr>
+    <tr>
+      <th scope="row"><a href="{% url 'part_duplicates' %}">Duplicates</a></th>
+      <td>Parts that look like the same component written two ways, and the
+          merge that folds them back together.</td>
     </tr>
   </tbody>
 </table>
