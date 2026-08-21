@@ -1,6 +1,7 @@
 from datetime import datetime, timezone as dt_timezone
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import Client, TestCase, override_settings
@@ -613,3 +614,69 @@ class PasswordResetTests(TestCase):
     def test_login_page_does_not_offer_a_reset_link(self):
         response = self.client.get(reverse("login"))
         self.assertNotContains(response, "Forgot your password")
+
+    def test_posting_to_a_disabled_reset_sends_nothing(self):
+        User.objects.create_user("owner", "o@example.com", "pw12345!")
+        response = self.client.post(
+            reverse("password_reset"), {"email": "o@example.com"}
+        )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(EMAIL_CONFIGURED=True)
+class PasswordResetWithMailTests(TestCase):
+    """The real flow, once EMAIL_HOST is set."""
+
+    def setUp(self):
+        self.user = User.objects.create_user("owner", "o@example.com", "pw12345!")
+
+    def test_login_page_offers_the_link_once_mail_works(self):
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, "Forgot your password")
+
+    def test_reset_form_renders_instead_of_the_apology(self):
+        response = self.client.get(reverse("password_reset"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reset your password")
+
+    def test_end_to_end_reset_actually_changes_the_password(self):
+        response = self.client.post(
+            reverse("password_reset"), {"email": "o@example.com"}
+        )
+        self.assertRedirects(response, reverse("password_reset_done"))
+        self.assertEqual(len(mail.outbox), 1)
+
+        message = mail.outbox[0]
+        self.assertEqual(message.subject, "Reset your Inventory password")
+        self.assertIn("owner", message.body)
+        self.assertIn("/accounts/reset/", message.body)
+
+        # Follow the link out of the email exactly as a user would.
+        link = next(
+            line.strip()
+            for line in message.body.splitlines()
+            if "/accounts/reset/" in line
+        )
+        path = link.split("testserver", 1)[-1]
+
+        response = self.client.get(path, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Choose a new password")
+
+        response = self.client.post(
+            response.redirect_chain[-1][0] if response.redirect_chain else path,
+            {
+                "new_password1": "a-brand-new-passphrase",
+                "new_password2": "a-brand-new-passphrase",
+            },
+        )
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("a-brand-new-passphrase"))
+
+    def test_unknown_address_does_not_reveal_itself(self):
+        response = self.client.post(
+            reverse("password_reset"), {"email": "nobody@example.com"}
+        )
+        self.assertRedirects(response, reverse("password_reset_done"))
+        self.assertEqual(len(mail.outbox), 0)
