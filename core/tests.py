@@ -3,8 +3,9 @@ from datetime import UTC, datetime
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import Client, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse, reverse_lazy
 
 from .forms import parse_parts_text
@@ -525,6 +526,28 @@ class TeardownViewTests(BaseCase):
         response = self.client.get(reverse("project_teardown", args=[theirs.pk]))
         self.assertEqual(response.status_code, 404)
 
+    def test_a_foreign_line_id_reveals_nothing_about_it(self):
+        """The form used to look line_id up unscoped, so posting someone
+        else's id and a deliberately wrong sum read their quantity back in
+        the error message."""
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        their_part = Part.objects.create(user=stranger, name="Secret", qty_owned=99)
+        their_project = Project.objects.create(user=stranger, name="Secret build")
+        their_line = ProjectPart.objects.create(
+            project=their_project, part=their_part, qty_allocated=37
+        )
+
+        response = self.post([(their_line, 0, 0, 0)])
+        body = response.content.decode()
+        self.assertNotIn("37", body)
+        self.assertNotIn("Account for exactly", body)
+        self.assertContains(response, "no longer exists")
+
+        their_line.refresh_from_db()
+        their_project.refresh_from_db()
+        self.assertEqual(their_line.qty_returned, 0)
+        self.assertEqual(their_project.status, ProjectStatus.ACTIVE)
+
 
 class SignupTests(TestCase):
     url = reverse_lazy("signup")
@@ -944,6 +967,25 @@ class DashboardTests(BaseCase):
         response = self.client.get(self.url)
         self.assertEqual(response.context["running_low"][0].name, "Scarce")
         self.assertEqual(response.context["running_low"][0].available, 0)
+
+    def test_query_count_does_not_grow_with_the_number_of_builds(self):
+        """The held and short counts used to hit the database once per
+        project, so ten builds meant ten extra queries."""
+        parts = [self.part(f"P{i}", qty=50) for i in range(3)]
+
+        def queries_for(project_count):
+            Project.objects.filter(user=self.user).delete()
+            for j in range(project_count):
+                project = self.project(f"Build {j}")
+                for part in parts:
+                    ProjectPart.objects.create(
+                        project=project, part=part, qty_wanted=4, qty_allocated=2
+                    )
+            with CaptureQueriesContext(connection) as captured:
+                self.client.get(self.url)
+            return len(captured)
+
+        self.assertEqual(queries_for(2), queries_for(8))
 
     def test_only_your_own_work_appears(self):
         stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
