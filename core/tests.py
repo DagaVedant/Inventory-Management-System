@@ -1039,6 +1039,41 @@ class DerivedDefaultTests(BaseCase):
         self.assertEqual(line.qty_wanted, 4)
 
 
+@override_settings(
+    ADMINS=[("Inventory errors", "errors@example.com")],
+    EMAIL_CONFIGURED=True,
+)
+class ErrorEmailTests(BaseCase):
+    """A 500 in production should reach a person, not just a log."""
+
+    def test_mail_admins_reaches_the_configured_address(self):
+        from django.core.mail import mail_admins
+
+        mail_admins("Something broke", "Traceback would go here.")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["errors@example.com"])
+
+    def test_django_routes_request_errors_to_that_handler(self):
+        """Not a setting we invented: Django's own logging config sends
+        django.request errors to mail_admins once DEBUG is off."""
+        import logging
+
+        from django.utils.log import DEFAULT_LOGGING
+
+        self.assertIn("mail_admins", DEFAULT_LOGGING["loggers"]["django"]["handlers"])
+        handler = DEFAULT_LOGGING["handlers"]["mail_admins"]
+        self.assertEqual(handler["level"], "ERROR")
+        self.assertIn("require_debug_false", handler["filters"])
+        self.assertTrue(logging.getLogger("django.request"))
+
+    @override_settings(ADMINS=[])
+    def test_with_nobody_configured_nothing_is_sent(self):
+        from django.core.mail import mail_admins
+
+        mail_admins("Something broke", "Traceback would go here.")
+        self.assertEqual(len(mail.outbox), 0)
+
+
 class ThrottleTests(ClearsThrottle, TestCase):
     """Signup is open and login accepts anything. Slow both down."""
 
