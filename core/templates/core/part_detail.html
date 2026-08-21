@@ -1,0 +1,124 @@
+{% extends "core/base.html" %}
+{% block title %}{{ part.name }}{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>{{ part.name }}</h1>
+  <p>
+    {% if part.value %}{{ part.value }}{% endif %}
+    {% if part.package %}· {{ part.package }}{% endif %}
+    {% if part.voltage %}· {{ part.voltage }}{% endif %}
+    {% if part.pin_count %}· {{ part.pin_count }} pins{% endif %}
+  </p>
+</hgroup>
+
+{% if part.tag_list %}
+  <p>{% for tag in part.tag_list %}<span class="tag">{{ tag }}</span>{% endfor %}</p>
+{% endif %}
+
+<div class="grid" style="margin-bottom:1.5rem;">
+  <article style="text-align:center">
+    <h2 style="margin:0">{{ part.qty_owned }}</h2>
+    <small class="muted">owned</small>
+  </article>
+  <article style="text-align:center">
+    <h2 style="margin:0">{{ part.held }}</h2>
+    <small class="muted">held by projects</small>
+  </article>
+  <article style="text-align:center">
+    <h2 style="margin:0" {% if part.available == 0 %}class="zero"{% endif %}>{{ part.available }}</h2>
+    <small class="muted">available</small>
+  </article>
+</div>
+
+<form method="post" action="{% url 'part_add_stock' part.pk %}"
+      style="display:flex; gap:.5rem; align-items:flex-end; flex-wrap:wrap;">
+  {% csrf_token %}
+  <label style="margin:0">
+    {{ add_stock_form.qty.label }}
+    {{ add_stock_form.qty }}
+  </label>
+  <button type="submit" style="width:auto">Add stock</button>
+  <span class="muted"><small>A delivery arrived. To fix a miscount instead,
+    <a href="{% url 'part_update' part.pk %}">edit the part</a>.</small></span>
+</form>
+
+<h2>Held right now</h2>
+{% if holding %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Project</th>
+      <th scope="col" class="num">Allocated</th>
+      <th scope="col" class="num">Still held</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in holding %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'project_detail' line.project.pk %}">{{ line.project.name }}</a>
+      </th>
+      <td class="num">{{ line.qty_allocated }}</td>
+      <td class="num"><strong>{{ line.remaining }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% else %}
+  <p class="muted">Nothing on the bench is holding any.</p>
+{% endif %}
+
+<h2>What's happened to it</h2>
+{% if history %}
+<figure>
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Project</th>
+      <th scope="col">Torn down</th>
+      <th scope="col" class="num">Used</th>
+      <th scope="col" class="num">Returned</th>
+      <th scope="col" class="num">Soldered</th>
+      <th scope="col" class="num">Broken</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in history %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'project_detail' line.project.pk %}">{{ line.project.name }}</a>
+      </th>
+      <td class="muted">{{ line.project.archived_at|date:"j M Y" }}</td>
+      <td class="num">{{ line.qty_allocated }}</td>
+      <td class="num muted">{{ line.qty_returned }}</td>
+      <td class="num">{{ line.qty_soldered }}</td>
+      <td class="num">{{ line.qty_broken }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+{% if total_lost %}
+  <p class="muted">Builds have permanently eaten <strong>{{ total_lost }}</strong>
+     of these — soldered in or dead.</p>
+{% endif %}
+{% else %}
+  <p class="muted">No finished builds have used it yet.</p>
+{% endif %}
+
+{% if part.notes %}
+  <h2>Notes</h2>
+  <p>{{ part.notes|linebreaks }}</p>
+{% endif %}
+
+<div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:2rem;">
+  <a href="{% url 'part_update' part.pk %}" role="button" class="secondary">Edit</a>
+  <a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a>
+  <span style="margin-left:auto">
+    <a href="{% url 'part_delete' part.pk %}" class="muted">Delete</a>
+  </span>
+</div>
+{% endblock %}
