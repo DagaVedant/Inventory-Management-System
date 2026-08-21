@@ -34,8 +34,9 @@
     .brand { display:inline-flex; align-items:center; gap:.45rem;
              /* Not a link: it is the mark, not navigation. */
              cursor:default; user-select:none; }
-    .logo { width:1.35rem; height:1.35rem; flex:none;
-            color:var(--pico-primary); }
+    /* Fixed palette now, so tinting it with the theme colour does nothing.
+       A shade larger than the old flat mark because it carries detail. */
+    .logo { width:1.55rem; height:1.55rem; flex:none; }
     table { font-size:.85rem; margin-bottom:0; }
     table th, table td { padding:.35rem .5rem; }
     td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
@@ -59,15 +60,36 @@
   <nav class="topbar">
     <span class="brand">
       <svg class="logo" viewBox="0 0 32 32" role="img" aria-label="Inventory">
-        <rect x="2.6" y="2.6" width="26.8" height="26.8" rx="4"
-              fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"/>
-        <path d="M2.6 10.5h6M2.6 21.5h6M23.4 10.5h6M23.4 21.5h6
-                 M10.5 2.6v6M21.5 2.6v6M10.5 23.4v6M21.5 23.4v6"
-              stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-              opacity=".4"/>
-        <rect x="9" y="9" width="14" height="14" rx="2.2" fill="currentColor"/>
-        <circle cx="12.2" cy="12.2" r="1.4"
-                fill="var(--pico-background-color, #11191f)"/>
+        <rect x="1.6" y="1.6" width="28.8" height="28.8" rx="4.5" fill="#1E7D3C" stroke="#0D5326" stroke-width="1.2"/>
+        <circle cx="5.2" cy="5.2" r="1.15" fill="#C3C8CC"/>
+        <circle cx="26.8" cy="5.2" r="1.15" fill="#C3C8CC"/>
+        <circle cx="5.2" cy="26.8" r="1.15" fill="#C3C8CC"/>
+        <circle cx="26.8" cy="26.8" r="1.15" fill="#C3C8CC"/>
+        <path d="M11.5 7.4V4M17.5 7.4V4M7.4 11.5H4M7.4 17.5H4M20.5 24.6V28M14.5 24.6V28M24.6 14.5H28M24.6 20.5H28" stroke="#F5C400" stroke-width="1" stroke-linecap="round" fill="none"/>
+        <rect x="7.6" y="7.6" width="2.4" height="2.4" fill="#F26522"/>
+        <rect x="22" y="7.6" width="2.4" height="2.4" fill="#F26522"/>
+        <rect x="7.6" y="22" width="2.4" height="2.4" fill="#2D7FD3"/>
+        <rect x="22" y="22" width="2.4" height="2.4" fill="#2D7FD3"/>
+        <g fill="#E8B400">
+        <rect x="10.75" y="7.6" width="1.5" height="2.6" rx=".4"/>
+        <rect x="13.75" y="7.6" width="1.5" height="2.6" rx=".4"/>
+        <rect x="16.75" y="7.6" width="1.5" height="2.6" rx=".4"/>
+        <rect x="19.75" y="7.6" width="1.5" height="2.6" rx=".4"/>
+        <rect x="10.75" y="21.8" width="1.5" height="2.6" rx=".4"/>
+        <rect x="13.75" y="21.8" width="1.5" height="2.6" rx=".4"/>
+        <rect x="16.75" y="21.8" width="1.5" height="2.6" rx=".4"/>
+        <rect x="19.75" y="21.8" width="1.5" height="2.6" rx=".4"/>
+        <rect x="7.6" y="10.75" width="2.6" height="1.5" rx=".4"/>
+        <rect x="7.6" y="13.75" width="2.6" height="1.5" rx=".4"/>
+        <rect x="7.6" y="16.75" width="2.6" height="1.5" rx=".4"/>
+        <rect x="7.6" y="19.75" width="2.6" height="1.5" rx=".4"/>
+        <rect x="21.8" y="10.75" width="2.6" height="1.5" rx=".4"/>
+        <rect x="21.8" y="13.75" width="2.6" height="1.5" rx=".4"/>
+        <rect x="21.8" y="16.75" width="2.6" height="1.5" rx=".4"/>
+        <rect x="21.8" y="19.75" width="2.6" height="1.5" rx=".4"/>
+        </g>
+        <rect x="10.2" y="10.2" width="11.6" height="11.6" rx="1.8" fill="#4B4B4B" stroke="#2B2B2B" stroke-width=".8"/>
+        <rect x="13.4" y="13.4" width="5.2" height="5.2" rx=".9" fill="none" stroke="#E6E8EA" stroke-width="1"/>
       </svg>
       <strong>Inventory</strong>
     </span>
