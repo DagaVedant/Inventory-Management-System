@@ -197,21 +197,6 @@ else:
 
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "inventory@localhost")
 
-# Where unhandled 500s go. Django's default logging already routes
-# django.request errors to the mail_admins handler once DEBUG is False, so
-# setting ADMINS is the whole wiring.
-#
-# Read from the environment with no default on purpose: this repository is
-# public, and a real address written into settings.py is a real address
-# published to anything that scrapes GitHub.
-ERROR_EMAIL = os.environ.get("ERROR_EMAIL", "")
-ADMINS = [("Inventory errors", ERROR_EMAIL)] if ERROR_EMAIL else []
-MANAGERS = ADMINS
-
-# The From on error mail. Providers reject anything they won't let you send as,
-# so this usually has to match the SMTP account.
-SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
-
 
 # Signup
 # Leave SIGNUP_CODE unset and anyone with the URL can create an account. Set it

@@ -8,7 +8,7 @@ resets and waiting is a miserable way to spend an evening.
 """
 
 from django.conf import settings
-from django.core.mail import EmailMessage, mail_admins
+from django.core.mail import EmailMessage
 from django.core.management.base import BaseCommand, CommandError
 
 
@@ -16,48 +16,15 @@ class Command(BaseCommand):
     help = "Send a test email to check the mail configuration."
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "recipient",
-            nargs="?",
-            default=None,
-            help="Where to send the test message. Omit with --admins.",
-        )
-        parser.add_argument(
-            "--admins",
-            action="store_true",
-            help="Send to ADMINS instead, testing the crash-report path.",
-        )
+        parser.add_argument("recipient", help="Where to send the test message.")
 
     def handle(self, *args, **options):
+        recipient = options["recipient"]
         backend = settings.MAILERS["default"]["BACKEND"]
-        to_admins = options["admins"]
 
         self.stdout.write(f"EMAIL_CONFIGURED: {settings.EMAIL_CONFIGURED}")
         self.stdout.write(f"backend:          {backend}")
         self.stdout.write(f"from:             {settings.DEFAULT_FROM_EMAIL}")
-        self.stdout.write(f"errors to:        {settings.ADMINS or '(nobody)'}")
-
-        if to_admins:
-            if not settings.ADMINS:
-                raise CommandError(
-                    "ADMINS is empty, so crash reports go nowhere. Set the "
-                    "ERROR_EMAIL environment variable."
-                )
-            self.stdout.write("\nSending a crash report to ADMINS...")
-            mail_admins(
-                "Inventory: error mail is working",
-                "If you're reading this, real crash reports will reach you too.\n",
-            )
-            self.stdout.write(
-                self.style.SUCCESS("Sent.")
-                if settings.EMAIL_CONFIGURED
-                else self.style.WARNING("Printed above; nothing left this machine.")
-            )
-            return
-
-        recipient = options["recipient"]
-        if not recipient:
-            raise CommandError("Give an address, or pass --admins.")
 
         if not settings.EMAIL_CONFIGURED:
             self.stdout.write(

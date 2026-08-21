@@ -176,7 +176,7 @@ ruff check .
 ruff format --check .
 ```
 
-Two hundred and eleven of them, mostly on the arithmetic. The invariant that soldered and
+Two hundred and eight of them, mostly on the arithmetic. The invariant that soldered and
 broken decrement `qty_owned` in the same transaction as the teardown is the one
 thing in this app that can silently corrupt every number, so it's covered from
 several directions.
@@ -303,7 +303,6 @@ Then check it actually works before trusting it with a reset link:
 
 ```bash
 python manage.py test_email you@example.com
-python manage.py test_email --admins        # the crash-report path
 ```
 
 That prints which backend is live and the host it's talking to, sends a real
@@ -319,23 +318,6 @@ account password.
 ```python
 python manage.py shell -c "from django.contrib.auth import get_user_model; U=get_user_model(); u=U.objects.get(username='...'); u.set_password('...'); u.save()"
 ```
-
-## Crash reports
-
-Set `ERROR_EMAIL` and unhandled 500s are emailed there. Nothing custom is
-doing that: Django's own logging config routes `django.request` errors to its
-`mail_admins` handler once `DEBUG` is off, and `ERROR_EMAIL` is simply what
-fills `ADMINS`.
-
-It is read from the environment with no fallback on purpose. This repository is
-public, and an address written into `settings.py` is an address published to
-anything that scrapes GitHub.
-
-`SERVER_EMAIL` is the From on those messages. Most providers reject anything
-they will not let you send as, so it usually has to match the SMTP account.
-
-It needs working SMTP, so configure that first and confirm with
-`test_email --admins`.
 
 ## Backups
 
@@ -393,8 +375,6 @@ an internal probe over plain HTTP doesn't get a 301 and read as a failure.
 | `EMAIL_PORT` `EMAIL_HOST_USER` `EMAIL_HOST_PASSWORD` `EMAIL_USE_TLS` | SMTP details |
 | `DEFAULT_FROM_EMAIL` | the From address on reset mail |
 | `TIME_ZONE` | display timezone, defaults to `America/New_York`; storage is always UTC |
-| `ERROR_EMAIL` | where unhandled 500s are emailed; unset means nowhere |
-| `SERVER_EMAIL` | From address on crash reports, defaults to `DEFAULT_FROM_EMAIL` |
 
 With `DEBUG=False` the app forces HTTPS, marks session and CSRF cookies secure,
 and sends a one-hour HSTS header. `SECURE_PROXY_SSL_HEADER` is set alongside
