@@ -9,11 +9,13 @@ from django.db.models import Count, F, ProtectedError, Q, Sum
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils.functional import cached_property
 from django.views.decorators.http import require_POST
 from django.views.generic import (
     CreateView,
     DeleteView,
     DetailView,
+    FormView,
     ListView,
     TemplateView,
     UpdateView,
@@ -26,6 +28,7 @@ from .forms import (
     MergePartForm,
     PartForm,
     SignupForm,
+    TagRenameForm,
     TeardownFormSet,
     WantToBuyForm,
 )
@@ -97,75 +100,74 @@ class GuideView(TemplateView):
     template_name = "core/guide.html"
 
 
-@login_required
-def dashboard(request):
-    user = request.user
+class DashboardView(LoginRequiredMixin, TemplateView):
+    template_name = "core/dashboard.html"
 
-    active = list(
-        Project.objects.filter(user=user, status=ProjectStatus.ACTIVE)
-        .annotate(n_lines=Count("lines"))
-        .prefetch_related("lines")
-        .order_by("-created_at")
-    )
-    for project in active:
-        lines = project.lines.all()
-        project.held_count = sum(line.remaining for line in lines)
-        project.short_count = sum(line.short for line in lines)
+    def get_context_data(self, **kwargs):
+        user = self.request.user
 
-    shortfall = {}
-
-    for row in (
-        ProjectPart.objects.filter(
-            project__user=user, project__status=ProjectStatus.ACTIVE
+        active = list(
+            Project.objects.filter(user=user, status=ProjectStatus.ACTIVE)
+            .annotate(n_lines=Count("lines"))
+            .prefetch_related("lines")
+            .order_by("-created_at")
         )
-        .values("part_id", "part__name", "part__value")
-        .annotate(short=Sum(F("qty_wanted") - F("qty_allocated")))
-        .filter(short__gt=0)
-    ):
-        shortfall[row["part_id"]] = {
-            "part_id": row["part_id"],
-            "name": row["part__name"],
-            "value": row["part__value"],
-            "from_builds": row["short"],
-            "wanted": 0,
-        }
+        for project in active:
+            lines = project.lines.all()
+            project.held_count = sum(line.remaining for line in lines)
+            project.short_count = sum(line.short for line in lines)
 
-    parts = Part.objects.filter(user=user).with_availability()
+        shortfall = {}
 
-    for part in parts.filter(qty_to_buy__gt=0):
-        row = shortfall.setdefault(
-            part.pk,
-            {
-                "part_id": part.pk,
-                "name": part.name,
-                "value": part.value,
-                "from_builds": 0,
+        for row in (
+            ProjectPart.objects.filter(
+                project__user=user, project__status=ProjectStatus.ACTIVE
+            )
+            .values("part_id", "part__name", "part__value")
+            .annotate(short=Sum(F("qty_wanted") - F("qty_allocated")))
+            .filter(short__gt=0)
+        ):
+            shortfall[row["part_id"]] = {
+                "part_id": row["part_id"],
+                "name": row["part__name"],
+                "value": row["part__value"],
+                "from_builds": row["short"],
                 "wanted": 0,
-            },
+            }
+
+        parts = Part.objects.filter(user=user).with_availability()
+
+        for part in parts.filter(qty_to_buy__gt=0):
+            row = shortfall.setdefault(
+                part.pk,
+                {
+                    "part_id": part.pk,
+                    "name": part.name,
+                    "value": part.value,
+                    "from_builds": 0,
+                    "wanted": 0,
+                },
+            )
+            row["wanted"] = part.qty_to_buy
+
+        for row in shortfall.values():
+            row["total"] = row["from_builds"] + row["wanted"]
+
+        shortfall = sorted(
+            shortfall.values(), key=lambda row: (-row["total"], row["name"])
         )
-        row["wanted"] = part.qty_to_buy
 
-    for row in shortfall.values():
-        row["total"] = row["from_builds"] + row["wanted"]
-
-    shortfall = sorted(shortfall.values(), key=lambda row: (-row["total"], row["name"]))
-
-    running_low = parts.order_by("available", "name")[:8]
-
-    return render(
-        request,
-        "core/dashboard.html",
-        {
-            "active": active,
-            "shortfall": shortfall,
-            "running_low": running_low,
-            "total_parts": parts.count(),
-            "total_short": sum(row["total"] for row in shortfall),
-            "archived_count": Project.objects.filter(
+        return super().get_context_data(
+            active=active,
+            shortfall=shortfall,
+            running_low=parts.order_by("available", "name")[:8],
+            total_parts=parts.count(),
+            total_short=sum(row["total"] for row in shortfall),
+            archived_count=Project.objects.filter(
                 user=user, status=ProjectStatus.ARCHIVED
             ).count(),
-        },
-    )
+            **kwargs,
+        )
 
 
 class OwnedMixin(LoginRequiredMixin):
@@ -362,102 +364,109 @@ def tag_counts(user):
     return sorted(counts.items(), key=lambda pair: (-pair[1], pair[0].casefold()))
 
 
-@login_required
-def tag_index(request):
-    if request.method == "POST":
-        old = request.POST.get("old", "").strip()
-        new = normalise_tags(request.POST.get("new", ""))
+class TagIndexView(LoginRequiredMixin, FormView):
+    template_name = "core/tag_index.html"
+    form_class = TagRenameForm
+    success_url = reverse_lazy("tag_index")
 
-        if not old:
-            messages.error(request, "Pick a tag to rename.")
-        else:
-            affected = list(
-                Part.objects.filter(user=request.user).filter(tag_filter(old))
-            )
-            for part in affected:
-                kept = [t for t in part.tag_list() if t.casefold() != old.casefold()]
-                if new:
-                    kept.extend(
-                        t
-                        for t in new.split(", ")
-                        if t.casefold() not in {k.casefold() for k in kept}
-                    )
-                part.tags = normalise_tags(", ".join(kept))
-                part.save(update_fields=["tags"])
+    @cached_property
+    def tags(self):
+        return tag_counts(self.request.user)
 
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "tags": self.tags}
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(tags=self.tags, **kwargs)
+
+    def form_valid(self, form):
+        old = form.cleaned_data["old"]
+        new = form.cleaned_data["new"]
+
+        affected = list(
+            Part.objects.filter(user=self.request.user).filter(tag_filter(old))
+        )
+        for part in affected:
+            kept = [t for t in part.tag_list() if t.casefold() != old.casefold()]
             if new:
-                messages.success(
-                    request, f"Renamed {old} to {new} on {len(affected)} part(s)."
+                kept.extend(
+                    t
+                    for t in new.split(", ")
+                    if t.casefold() not in {k.casefold() for k in kept}
                 )
-            else:
-                messages.success(
-                    request, f"Removed {old} from {len(affected)} part(s)."
+            part.tags = normalise_tags(", ".join(kept))
+            part.save(update_fields=["tags"])
+
+        if new:
+            messages.success(
+                self.request, f"Renamed {old} to {new} on {len(affected)} part(s)."
+            )
+        else:
+            messages.success(
+                self.request, f"Removed {old} from {len(affected)} part(s)."
+            )
+        return super().form_valid(form)
+
+
+class PartDuplicatesView(LoginRequiredMixin, TemplateView):
+    template_name = "core/part_duplicates.html"
+
+    def get_context_data(self, **kwargs):
+        parts = list(
+            Part.objects.filter(user=self.request.user)
+            .with_availability()
+            .order_by("name")
+        )
+
+        groups = {}
+        for part in parts:
+            groups.setdefault(part.match_key(), []).append(part)
+
+        duplicates = [members for members in groups.values() if len(members) > 1]
+        duplicates.sort(key=lambda members: members[0].name)
+
+        return super().get_context_data(
+            duplicates=duplicates, checked=len(parts), **kwargs
+        )
+
+
+class PartMergeView(LoginRequiredMixin, FormView):
+    template_name = "core/part_merge.html"
+    form_class = MergePartForm
+
+    @cached_property
+    def source(self):
+        return get_object_or_404(Part, pk=self.kwargs["pk"], user=self.request.user)
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "source": self.source}
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(
+            source=self.source,
+            likely=[
+                part
+                for part in Part.objects.filter(user=self.request.user).exclude(
+                    pk=self.source.pk
                 )
-        return redirect("tag_index")
+                if part.match_key() == self.source.match_key()
+            ],
+            line_count=self.source.allocations.count(),
+            history_count=self.source.movements.count(),
+            **kwargs,
+        )
 
-    return render(request, "core/tag_index.html", {"tags": tag_counts(request.user)})
-
-
-@login_required
-def part_duplicates(request):
-    parts = list(
-        Part.objects.filter(user=request.user).with_availability().order_by("name")
-    )
-
-    groups = {}
-    for part in parts:
-        groups.setdefault(part.match_key(), []).append(part)
-
-    duplicates = [members for members in groups.values() if len(members) > 1]
-    duplicates.sort(key=lambda members: members[0].name)
-
-    return render(
-        request,
-        "core/part_duplicates.html",
-        {
-            "duplicates": duplicates,
-            "checked": len(parts),
-        },
-    )
-
-
-@login_required
-def part_merge(request, pk):
-    source = get_object_or_404(Part, pk=pk, user=request.user)
-
-    if request.method == "POST":
-        form = MergePartForm(request.POST, source=source)
-        if form.is_valid():
-            target = form.cleaned_data["target"]
-            name_was = str(source)
-            try:
-                source.merge_into(target)
-            except ValidationError as exc:
-                for message in exc.messages:
-                    messages.error(request, message)
-            else:
-                messages.success(request, f"Merged {name_was} into {target}.")
-                return redirect("part_detail", pk=target.pk)
-    else:
-        form = MergePartForm(source=source)
-
-    likely = [
-        part
-        for part in Part.objects.filter(user=request.user).exclude(pk=source.pk)
-        if part.match_key() == source.match_key()
-    ]
-
-    return render(
-        request,
-        "core/part_merge.html",
-        {
-            "source": source,
-            "form": form,
-            "likely": likely,
-            "line_count": source.allocations.count(),
-            "history_count": source.movements.count(),
-        },
-    )
+    def form_valid(self, form):
+        target = form.cleaned_data["target"]
+        name_was = str(self.source)
+        try:
+            self.source.merge_into(target)
+        except ValidationError as exc:
+            for message in exc.messages:
+                messages.error(self.request, message)
+            return self.form_invalid(form)
+        messages.success(self.request, f"Merged {name_was} into {target}.")
+        return redirect("part_detail", pk=target.pk)
 
 
 @login_required
@@ -479,36 +488,36 @@ def part_want(request, pk):
     return redirect("part_detail", pk=part.pk)
 
 
-@login_required
-def part_import(request):
-    if request.method == "POST":
-        form = BulkPartImportForm(request.POST, user=request.user)
-        if form.is_valid():
-            created, topped_up = form.save()
-            StockMovement.objects.bulk_create(
-                [
-                    StockMovement(
-                        part=part,
-                        delta=part.qty_owned,
-                        balance_after=part.qty_owned,
-                        reason=MovementReason.OPENING,
-                        note="Imported.",
-                    )
-                    for part in created
-                    if part.qty_owned
-                ]
-            )
-            bits = []
-            if created:
-                bits.append(f"added {len(created)} part(s)")
-            if topped_up:
-                bits.append(f"topped up {topped_up}")
-            messages.success(request, f"Import done: {' and '.join(bits)}.")
-            return redirect("part_list")
-    else:
-        form = BulkPartImportForm(user=request.user)
+class PartImportView(LoginRequiredMixin, FormView):
+    template_name = "core/part_import.html"
+    form_class = BulkPartImportForm
+    success_url = reverse_lazy("part_list")
 
-    return render(request, "core/part_import.html", {"form": form})
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
+    def form_valid(self, form):
+        created, topped_up = form.save()
+        StockMovement.objects.bulk_create(
+            [
+                StockMovement(
+                    part=part,
+                    delta=part.qty_owned,
+                    balance_after=part.qty_owned,
+                    reason=MovementReason.OPENING,
+                    note="Imported.",
+                )
+                for part in created
+                if part.qty_owned
+            ]
+        )
+        bits = []
+        if created:
+            bits.append(f"added {len(created)} part(s)")
+        if topped_up:
+            bits.append(f"topped up {topped_up}")
+        messages.success(self.request, f"Import done: {' and '.join(bits)}.")
+        return super().form_valid(form)
 
 
 class PartUpdateView(TagChoicesMixin, OwnedMixin, UpdateView):
@@ -618,46 +627,56 @@ def _get_project(request, pk):
     return get_object_or_404(Project, pk=pk, user=request.user)
 
 
-@login_required
-def project_detail(request, pk):
-    project = _get_project(request, pk)
-    lines = project.lines.select_related("part").order_by("part__name")
+class ProjectDetailView(LoginRequiredMixin, FormView):
+    template_name = "core/project_detail.html"
+    form_class = AllocationForm
 
-    if request.method == "POST":
-        if not project.is_active:
+    @cached_property
+    def project(self):
+        return get_object_or_404(Project, pk=self.kwargs["pk"], user=self.request.user)
+
+    def get_success_url(self):
+        return reverse("project_detail", args=[self.project.pk])
+
+    def get_form_kwargs(self):
+        kwargs = {**super().get_form_kwargs(), "project": self.project}
+        if self.request.method == "POST":
+            kwargs["lock"] = True
+        return kwargs
+
+    def post(self, request, *args, **kwargs):
+        if not self.project.is_active:
             messages.error(request, "This project has been torn down.")
-            return redirect("project_detail", pk=project.pk)
-
+            return HttpResponseRedirect(self.get_success_url())
         with transaction.atomic():
-            form = AllocationForm(request.POST, project=project, lock=True)
-            if form.is_valid():
-                line = form.save()
-                if line.short:
-                    messages.warning(
-                        request,
-                        f"{line.part}: took {line.qty_allocated} of "
-                        f"{line.qty_wanted}. {line.short} still to buy.",
-                    )
-                else:
-                    messages.success(
-                        request, f"Allocated {line.qty_allocated} × {line.part}."
-                    )
-                return redirect("project_detail", pk=project.pk)
-    else:
-        form = AllocationForm(project=project)
+            return super().post(request, *args, **kwargs)
 
-    return render(
-        request,
-        "core/project_detail.html",
-        {
-            "project": project,
-            "lines": lines,
-            "form": form,
-            "total_held": sum(line.remaining for line in lines),
-            "total_short": sum(line.short for line in lines),
-            "summary": project.teardown_summary() if not project.is_active else None,
-        },
-    )
+    def form_valid(self, form):
+        line = form.save()
+        if line.short:
+            messages.warning(
+                self.request,
+                f"{line.part}: took {line.qty_allocated} of "
+                f"{line.qty_wanted}. {line.short} still to buy.",
+            )
+        else:
+            messages.success(
+                self.request, f"Allocated {line.qty_allocated} × {line.part}."
+            )
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        lines = list(self.project.lines.select_related("part").order_by("part__name"))
+        return super().get_context_data(
+            project=self.project,
+            lines=lines,
+            total_held=sum(line.remaining for line in lines),
+            total_short=sum(line.short for line in lines),
+            summary=(
+                self.project.teardown_summary() if not self.project.is_active else None
+            ),
+            **kwargs,
+        )
 
 
 @login_required
@@ -715,42 +734,47 @@ def line_return(request, pk, line_pk):
     return redirect("project_detail", pk=project.pk)
 
 
-@login_required
-def project_reopen(request, pk):
-    project = _get_project(request, pk)
-    detail_url = reverse("project_detail", args=[project.pk])
+class ProjectReopenView(LoginRequiredMixin, TemplateView):
+    template_name = "core/project_reopen.html"
 
-    if project.is_active:
-        messages.warning(request, "That project is already on the bench.")
-        return HttpResponseRedirect(detail_url)
+    @cached_property
+    def project(self):
+        return get_object_or_404(Project, pk=self.kwargs["pk"], user=self.request.user)
 
-    lines = list(project.lines.select_related("part").order_by("part__name"))
-    coming_back = sum(line.lost for line in lines)
+    @cached_property
+    def detail_url(self):
+        return reverse("project_detail", args=[self.project.pk])
 
-    if request.method == "POST":
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and self.project.is_active:
+            messages.warning(request, "That project is already on the bench.")
+            return HttpResponseRedirect(self.detail_url)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        lines = list(self.project.lines.select_related("part").order_by("part__name"))
+        return super().get_context_data(
+            project=self.project,
+            lines=[line for line in lines if line.lost or line.teardown_returned],
+            coming_back=sum(line.lost for line in lines),
+            detail_url=self.detail_url,
+            **kwargs,
+        )
+
+    def post(self, request, *args, **kwargs):
+        coming_back = sum(line.lost for line in self.project.lines.all())
         try:
-            project.reopen()
+            self.project.reopen()
         except ValidationError as exc:
             for message in exc.messages:
                 messages.error(request, message)
         else:
             messages.success(
                 request,
-                f"{project} is back on the bench. "
+                f"{self.project} is back on the bench. "
                 f"{coming_back} part(s) restored to your inventory.",
             )
-        return HttpResponseRedirect(detail_url)
-
-    return render(
-        request,
-        "core/project_reopen.html",
-        {
-            "project": project,
-            "lines": [line for line in lines if line.lost or line.teardown_returned],
-            "coming_back": coming_back,
-            "detail_url": detail_url,
-        },
-    )
+        return HttpResponseRedirect(self.detail_url)
 
 
 @login_required

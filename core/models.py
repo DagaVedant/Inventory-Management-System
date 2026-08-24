@@ -143,9 +143,6 @@ class Part(models.Model):
             )
         )["held"]
 
-    def compute_available(self):
-        return self.qty_owned - self.compute_held()
-
     def clean(self):
         from django.core.exceptions import ValidationError
 

@@ -35,16 +35,7 @@
 
 <form method="post">
   {% csrf_token %}
-  <div class="grid">
-    <label>Rename this tag
-      <select name="old">
-        {% for tag, count in tags %}<option value="{{ tag }}">{{ tag }} ({{ count }})</option>{% endfor %}
-      </select>
-    </label>
-    <label>To this
-      <input type="text" name="new" placeholder="Leave empty to remove it">
-    </label>
-  </div>
+  {{ form.as_p }}
   <button type="submit">Apply</button>
 </form>
 {% endif %}

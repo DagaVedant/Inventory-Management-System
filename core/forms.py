@@ -4,7 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.db.models import Case, IntegerField, Value, When
 
-from .models import Part, ProjectPart, match_key
+from .models import Part, ProjectPart, match_key, normalise_tags
 
 
 class SignupForm(UserCreationForm):
@@ -208,6 +208,22 @@ class MergePartForm(forms.Form):
                 ),
                 "name",
             )
+
+
+class TagRenameForm(forms.Form):
+    old = forms.ChoiceField(label="Rename this tag")
+    new = forms.CharField(
+        label="To this",
+        required=False,
+        widget=forms.TextInput(attrs={"placeholder": "Leave empty to remove it"}),
+    )
+
+    def __init__(self, *args, tags=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["old"].choices = [(tag, f"{tag} ({count})") for tag, count in tags]
+
+    def clean_new(self):
+        return normalise_tags(self.cleaned_data.get("new", ""))
 
 
 class WantToBuyForm(forms.Form):
