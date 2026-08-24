@@ -20,7 +20,7 @@ User = get_user_model()
 
 # fmt: off
 # Hand-aligned on purpose: as columns this scans in one pass, and letting the
-# formatter wrap it turns 36 readable rows into 200 lines of noise.
+# formatter wrap it turns 38 readable rows into 200 lines of noise.
 PARTS = [
     # name, value, package, pins, voltage, qty, tags
     ("ESP32 devkit v1",            "",       "module",       30, "5V",     2, "mcu, wifi, bluetooth"),
@@ -39,8 +39,10 @@ PARTS = [
     ("Resistor",                   "1k",     "through-hole",  2, "",     160, "passive, resistor"),
     ("Resistor",                   "4.7k",   "through-hole",  2, "",      95, "passive, i2c-pullup"),
     ("Resistor",                   "10k",    "through-hole",  2, "",     180, "passive, resistor"),
+    ("Resistor",                   "10KΩ",   "through-hole",  2, "",       6, "passive, resistor"),
     ("Ceramic capacitor",          "100nF",  "through-hole",  2, "",     120, "passive, decoupling"),
     ("Electrolytic capacitor",     "470uF",  "through-hole",  2, "16V",   24, "passive, capacitor"),
+    ("Electrolytic capacitor",     "470 µF", "through-hole",  2, "16V",    4, "passive, capacitor"),
     ("Electrolytic capacitor",     "1000uF", "through-hole",  2, "25V",   12, "passive, capacitor"),
     ("LED",                        "red 5mm",   "through-hole", 2, "",    60, "led, indicator"),
     ("LED",                        "green 5mm", "through-hole", 2, "",    45, "led, indicator"),

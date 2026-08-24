@@ -10,7 +10,7 @@ available to use.
 
 **[web-production-d6073.up.railway.app](https://web-production-d6073.up.railway.app)**
 
-there's a demo account with 36 parts and 4 projects already in it:
+there's a demo account with 38 parts and 4 projects already in it:
 
 ```
 username: demo
