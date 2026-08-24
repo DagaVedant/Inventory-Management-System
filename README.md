@@ -10,15 +10,19 @@ available to use.
 
 **[web-production-d6073.up.railway.app](https://web-production-d6073.up.railway.app)**
 
-there's a demo account with 38 parts and 4 projects already in it:
+sign up with any username and password. it asks for nothing else, no email and
+no confirmation step.
+
+if you would rather just look around first, there's a demo account already
+loaded with 38 parts and 4 projects:
 
 ```
 username: demo
 password: stardancedemo
 ```
 
-everything in that account is made up. sign up for your own if you want to keep
-anything.
+everything in the demo is made up and anyone can change it, so make your own
+account if you want to keep anything.
 
 ## the idea
 

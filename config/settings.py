@@ -30,11 +30,23 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = []
 
-RAILWAY_DOMAIN = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+# The public hostname, however the host chooses to announce it. Railway sets
+# RAILWAY_PUBLIC_DOMAIN on its own; everywhere else set SITE_DOMAIN by hand,
+# comma separated if there is more than one. Reading both means changing hosting
+# provider is an environment change rather than a code change.
+SITE_DOMAINS = [
+    host.strip()
+    for host in (
+        os.environ.get("SITE_DOMAIN")
+        or os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+        or ""
+    ).split(",")
+    if host.strip()
+]
 
-if RAILWAY_DOMAIN:
-    ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
-    CSRF_TRUSTED_ORIGINS = [f"https://{RAILWAY_DOMAIN}"]
+if SITE_DOMAINS:
+    ALLOWED_HOSTS += SITE_DOMAINS
+    CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in SITE_DOMAINS]
 
 if DEBUG:
     ALLOWED_HOSTS += ["localhost", "127.0.0.1"]
@@ -214,7 +226,7 @@ LOGOUT_REDIRECT_URL = "login"
 # Everything below is production-only: forcing HTTPS locally would just break
 # runserver.
 if not DEBUG:
-    # Railway terminates TLS at its edge and forwards to the container over
+    # The platform terminates TLS at its edge and forwards to the app over
     # plain HTTP. Without this header Django believes every request is
     # insecure, and SECURE_SSL_REDIRECT below would redirect forever.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

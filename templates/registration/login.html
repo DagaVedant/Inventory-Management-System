@@ -18,9 +18,13 @@
     <button type="submit">Log in</button>
   </form>
 
+  <p>
+    No account? <a href="{% url 'signup' %}">Create one</a>. It asks for a
+    username and a password and nothing else.
+  </p>
+
   <p class="muted"><small>
     New here? <a href="{% url 'guide' %}">How it works</a>.
-    No account? <a href="{% url 'signup' %}">Create one</a>.
     {% if email_configured %}
       &middot; <a href="{% url 'password_reset' %}">Forgot your password?</a>
     {% endif %}
