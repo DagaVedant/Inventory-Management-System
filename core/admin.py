@@ -6,8 +6,6 @@ from .models import Part, Project, ProjectPart, ProjectStatus
 
 
 class OwnedAdminMixin:
-    """Scope rows to the logged-in user and stamp ownership on create."""
-
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if request.user.is_superuser:
@@ -110,8 +108,6 @@ class ProjectAdmin(OwnedAdminMixin, admin.ModelAdmin):
     def teardown_link(self, obj):
         if obj.status != ProjectStatus.ACTIVE:
             return "-"
-        # Links out to the real teardown page rather than reimplementing it
-        # here. One screen, one implementation.
         url = reverse("project_teardown", args=[obj.pk])
         return format_html('<a class="button" href="{}">Tear down</a>', url)
 

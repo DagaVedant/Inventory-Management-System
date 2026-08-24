@@ -1,14 +1,3 @@
-"""Reconcile the ledger against the stored quantities.
-
-    python manage.py check_stock
-    python manage.py check_stock --fix
-
-qty_owned is a stored column for speed, and StockMovement is the record of how
-it got there. Those two can only disagree if something changed a quantity
-without going through Part.adjust_stock(), which is a bug. This command is how
-you find out, rather than trusting that it never happened.
-"""
-
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Sum
@@ -67,8 +56,6 @@ class Command(BaseCommand):
         with transaction.atomic():
             for part, ledger in drifted:
                 gap = part.qty_owned - ledger
-                # The stored quantity is treated as the truth: it is what every
-                # page has been showing you. The ledger gets the missing line.
                 part.movements.create(
                     delta=gap,
                     balance_after=part.qty_owned,

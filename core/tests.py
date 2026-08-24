@@ -23,13 +23,6 @@ User = get_user_model()
 
 
 class ClearsThrottle:
-    """The rate limit is cache-backed and the cache outlives a test method.
-
-    Without this, a class that logs in or signs up more than a handful of times
-    throttles itself and fails for reasons that have nothing to do with what it
-    is testing.
-    """
-
     def setUp(self):
         cache.clear()
         super().setUp()
@@ -50,8 +43,6 @@ class BaseCase(ClearsThrottle, TestCase):
 
 
 class AvailabilityTests(BaseCase):
-    """qty_owned is stored; held and available are derived."""
-
     def test_worked_example_from_the_plan(self):
         p = self.part(qty=10)
         proj = self.project()
@@ -90,8 +81,6 @@ class AvailabilityTests(BaseCase):
 
 
 class ConstraintTests(BaseCase):
-    """Guards that live in the database, not just in Python."""
-
     def test_cannot_account_for_more_than_allocated(self):
         p, proj = self.part(), self.project()
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -107,7 +96,6 @@ class ConstraintTests(BaseCase):
             )
 
     def test_allocating_nothing_is_fine_when_you_wanted_something(self):
-        """A pure shortfall line: you need three, you have none."""
         p, proj = self.part(qty=0), self.project()
         line = ProjectPart.objects.create(
             project=proj, part=p, qty_wanted=3, qty_allocated=0
@@ -137,8 +125,6 @@ class ConstraintTests(BaseCase):
 
 
 class AllocationGuardTests(BaseCase):
-    """You cannot allocate parts you do not have."""
-
     def test_blocks_allocating_more_than_available(self):
         p = self.part(qty=10)
         ProjectPart.objects.create(project=self.project("A"), part=p, qty_allocated=4)
@@ -151,9 +137,9 @@ class AllocationGuardTests(BaseCase):
             project=self.project("A"), part=p, qty_allocated=10
         )
         line.qty_allocated = 10
-        line.full_clean()  # unchanged re-save must not look like over-allocation
+        line.full_clean()
         line.qty_allocated = 8
-        line.full_clean()  # reducing is always fine
+        line.full_clean()
         line.qty_allocated = 11
         with self.assertRaises(ValidationError):
             line.full_clean()
@@ -247,7 +233,6 @@ class TeardownTests(BaseCase):
         line2 = ProjectPart.objects.create(
             project=self.proj, part=other, qty_allocated=2
         )
-        # First line is fine, second does not add up. The whole thing must roll back.
         self.post([(self.line, 4, 0, 0), (line2, 1, 0, 0)])
         self.line.refresh_from_db()
         self.p.refresh_from_db()
@@ -292,8 +277,6 @@ class AdminSmokeTests(BaseCase):
 
 
 class ViewTests(BaseCase):
-    """The custom UI, as opposed to the admin."""
-
     def test_everything_requires_login(self):
         anon = Client()
         p = self.part()
@@ -549,9 +532,6 @@ class TeardownViewTests(BaseCase):
         self.assertEqual(response.status_code, 404)
 
     def test_a_foreign_line_id_reveals_nothing_about_it(self):
-        """The form used to look line_id up unscoped, so posting someone
-        else's id and a deliberately wrong sum read their quantity back in
-        the error message."""
         stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
         their_part = Part.objects.create(user=stranger, name="Secret", qty_owned=99)
         their_project = Project.objects.create(user=stranger, name="Secret build")
@@ -665,8 +645,6 @@ class ProjectDeleteTests(BaseCase):
 
         self.client.post(reverse("project_delete", args=[proj.pk]))
         p.refresh_from_db()
-        # Those three parts were written off at teardown. Deleting the record
-        # must not resurrect them.
         self.assertEqual(p.qty_owned, 7)
         self.assertEqual(p.compute_available(), 7)
 
@@ -694,13 +672,11 @@ class ProjectDeleteTests(BaseCase):
 
 class PresentationTests(BaseCase):
     def test_dates_render_in_the_configured_zone_not_utc(self):
-        """A project created late evening Eastern must not show tomorrow."""
         proj = self.project()
         Project.objects.filter(pk=proj.pk).update(
             created_at=datetime(2026, 8, 20, 1, 30, tzinfo=UTC)
         )
         response = self.client.get(reverse("project_list"))
-        # 01:30 UTC on the 20th is 21:30 on the 19th in New York.
         self.assertContains(response, "19 Aug 2026")
         self.assertNotContains(response, "20 Aug 2026")
 
@@ -710,8 +686,6 @@ class PresentationTests(BaseCase):
 
 
 class ParserTests(TestCase):
-    """The bulk import parser, independent of any form or view."""
-
     def test_name_and_quantity_are_enough(self):
         rows, errors = parse_parts_text("DHT22, 4")
         self.assertEqual(errors, [])
@@ -788,7 +762,6 @@ class BulkImportTests(BaseCase):
         self.assertEqual(Part.objects.filter(name="DHT22").count(), 1)
 
     def test_a_near_duplicate_is_caught_too(self):
-        """Exact matching let 10 K in beside 10k and split the count."""
         self.part("Resistor", qty=100, value="10k")
         response = self.client.post(self.url, {"text": "resistor, 50, 10 K"})
         self.assertEqual(response.status_code, 200)
@@ -949,8 +922,6 @@ class ImportTopUpTests(BaseCase):
 
 
 class ImportLimitsTests(BaseCase):
-    """Over-long fields used to be cut down without saying so."""
-
     url = reverse_lazy("part_import")
 
     def test_an_over_long_value_is_reported_not_truncated(self):
@@ -1002,8 +973,6 @@ class BackupTests(BaseCase):
 
 
 class DerivedDefaultTests(BaseCase):
-    """qty_wanted fills itself in, and it has to do so consistently."""
-
     def test_a_line_with_only_an_allocation_wanted_that_much(self):
         p, proj = self.part(), self.project()
         line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
@@ -1019,7 +988,6 @@ class DerivedDefaultTests(BaseCase):
         self.assertEqual(line.short, 5)
 
     def test_it_works_when_attributes_are_assigned_after_construction(self):
-        """The old version mutated kwargs, so this path missed out entirely."""
         p, proj = self.part(), self.project()
         line = ProjectPart(project=proj, part=p)
         line.qty_allocated = 6
@@ -1040,8 +1008,6 @@ class DerivedDefaultTests(BaseCase):
 
 
 class ThrottleTests(ClearsThrottle, TestCase):
-    """Signup is open and login accepts anything. Slow both down."""
-
     def setUp(self):
         super().setUp()
         User.objects.create_user("owner", "o@example.com", "pw12345!")
@@ -1067,7 +1033,6 @@ class ThrottleTests(ClearsThrottle, TestCase):
         )
         self.client.logout()
 
-        # One typo months later shouldn't land on a nearly full counter.
         for _ in range(10):
             self.assertEqual(self.wrong_password().status_code, 200)
 
@@ -1110,8 +1075,6 @@ class ThrottleTests(ClearsThrottle, TestCase):
 
 
 class TagTests(BaseCase):
-    """Tags were a free-text string with no way to use or correct them."""
-
     def test_they_are_normalised_on_save(self):
         p = self.part(tags="  sensor ,,  i2c ,sensor, ")
         p.refresh_from_db()
@@ -1123,7 +1086,6 @@ class TagTests(BaseCase):
         self.assertEqual(p.tag_list(), ["Sensor"])
 
     def test_filtering_matches_a_whole_tag_not_a_substring(self):
-        """icontains would have made i2c also match i2c-pullup."""
         wanted = self.part("BMP280", tags="sensor, i2c")
         self.part("Resistor", tags="passive, i2c-pullup")
 
@@ -1211,8 +1173,6 @@ class TagTests(BaseCase):
 
 
 class MatchKeyTests(TestCase):
-    """Spotting the same component written two ways."""
-
     def test_case_spacing_and_ohms_all_fold_together(self):
         canonical = match_key("Resistor", "10k")
         for value in ["10 k", "10K", "10kΩ", "10 kohms", "10kohm"]:
@@ -1226,7 +1186,6 @@ class MatchKeyTests(TestCase):
                 self.assertEqual(match_key("Capacitor", value), canonical)
 
     def test_full_stops_are_kept_so_decimals_stay_distinct(self):
-        """Stripping them would fold 4.7k into 47k and invent a duplicate."""
         self.assertNotEqual(match_key("R", "4.7k"), match_key("R", "47k"))
 
     def test_a_word_containing_ohm_is_not_mangled(self):
@@ -1237,8 +1196,6 @@ class MatchKeyTests(TestCase):
 
 
 class MergeTests(BaseCase):
-    """Two rows for one component split your counts. Fold them together."""
-
     def setUp(self):
         super().setUp()
         self.keep = self.part("Resistor", qty=100, value="10k")
@@ -1289,7 +1246,6 @@ class MergeTests(BaseCase):
         self.assertEqual(newest.balance_after, self.keep.qty_owned)
 
     def test_running_balances_are_recomputed_not_left_stale(self):
-        """Two interleaved balance sequences would otherwise be nonsense."""
         self.keep.receive(20)
         self.dupe.receive(10)
         self.dupe.merge_into(self.keep)
@@ -1377,8 +1333,6 @@ class DuplicateFinderTests(BaseCase):
 
 
 class WantListTests(BaseCase):
-    """Shortfall needs a project. Wanting to buy something doesn't."""
-
     def want(self, part, qty):
         return self.client.post(reverse("part_want", args=[part.pk]), {"qty": qty})
 
@@ -1442,8 +1396,6 @@ class WantListTests(BaseCase):
         self.assertEqual(p.qty_to_buy, 0)
 
     def test_a_teardown_reversal_does_not_clear_the_want_list(self):
-        """Only a purchase satisfies a want. Stock coming back from a reversed
-        teardown is not a delivery, and shouldn't say you're done shopping."""
         p = self.part(qty=10)
         proj = self.project()
         line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
@@ -1471,8 +1423,6 @@ class WantListTests(BaseCase):
 
 
 class ReopenTests(BaseCase):
-    """Teardown is the one operation that destroys information. Undo it."""
-
     def tear_down(self, project, rows):
         project.tear_down(rows)
         project.refresh_from_db()
@@ -1502,13 +1452,11 @@ class ReopenTests(BaseCase):
         self.assertEqual(line.remaining, 4)
 
     def test_parts_handed_back_mid_build_stay_handed_back(self):
-        """The reason this needed a field of its own. qty_returned mixes early
-        returns with teardown returns, and only the second kind is undone."""
         p = self.part(qty=10)
         proj = self.project()
         line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=6)
 
-        line.qty_returned = 2  # handed back weeks before the teardown
+        line.qty_returned = 2
         line.save()
 
         self.tear_down(proj, [(line, 1, 2, 1)])
@@ -1609,10 +1557,7 @@ class ReopenTests(BaseCase):
 
 
 class StockLedgerTests(BaseCase):
-    """Every change to qty_owned has to say where it came from."""
-
     def reasons(self, part):
-        """Movements after the opening balance, newest first."""
         return [
             m.reason for m in part.movements.all() if m.reason != MovementReason.OPENING
         ]
@@ -1680,7 +1625,7 @@ class StockLedgerTests(BaseCase):
         proj = self.project()
         line = ProjectPart.objects.create(project=proj, part=p, qty_allocated=4)
         with self.assertRaises(ValidationError):
-            proj.tear_down([(line, 0, 1, 1)])  # doesn't add up to 4
+            proj.tear_down([(line, 0, 1, 1)])
         self.assertEqual(self.reasons(p), [])
 
     def test_adding_a_part_by_hand_opens_its_history(self):
@@ -1778,11 +1723,9 @@ class StockLedgerTests(BaseCase):
 class SortingTests(BaseCase):
     def setUp(self):
         super().setUp()
-        # Deliberately not in name order, so a passing test means the sort ran.
         self.cheap = self.part("Zener diode", qty=100)
         self.scarce = self.part("Arduino Nano", qty=3)
         self.middling = self.part("MPU-6050", qty=20)
-        # Every Nano is committed, so it should sort first by availability.
         ProjectPart.objects.create(
             project=self.project(), part=self.scarce, qty_allocated=3
         )
@@ -1890,8 +1833,6 @@ class DashboardTests(BaseCase):
         self.assertEqual(response.context["running_low"][0].available, 0)
 
     def test_query_count_does_not_grow_with_the_number_of_builds(self):
-        """The held and short counts used to hit the database once per
-        project, so ten builds meant ten extra queries."""
         parts = [self.part(f"P{i}", qty=50) for i in range(3)]
 
         def queries_for(project_count):
@@ -1977,15 +1918,11 @@ class HealthCheckTests(TestCase):
         self.assertEqual(response.json()["status"], "ok")
 
     def test_healthz_does_not_require_login(self):
-        # Everything else on the site bounces anonymous users to the login
-        # page; a probe that got a 302 would look unhealthy.
         response = Client().get(reverse("healthz"))
         self.assertNotIn("Location", response.headers)
 
 
 class PasswordResetTests(ClearsThrottle, TestCase):
-    """With no mail server configured, say so instead of pretending."""
-
     def test_reset_page_admits_it_cannot_send_mail(self):
         response = self.client.get(reverse("password_reset"))
         self.assertEqual(response.status_code, 503)
@@ -2006,8 +1943,6 @@ class PasswordResetTests(ClearsThrottle, TestCase):
 
 @override_settings(EMAIL_CONFIGURED=True)
 class PasswordResetWithMailTests(ClearsThrottle, TestCase):
-    """The real flow, once EMAIL_HOST is set."""
-
     def setUp(self):
         super().setUp()
         self.user = User.objects.create_user("owner", "o@example.com", "pw12345!")
@@ -2033,7 +1968,6 @@ class PasswordResetWithMailTests(ClearsThrottle, TestCase):
         self.assertIn("owner", message.body)
         self.assertIn("/accounts/reset/", message.body)
 
-        # Follow the link out of the email exactly as a user would.
         link = next(
             line.strip()
             for line in message.body.splitlines()

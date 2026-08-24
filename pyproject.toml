@@ -4,14 +4,10 @@ target-version = "py313"
 extend-exclude = ["*/migrations/*"]
 
 [tool.ruff.lint]
-# E/W pycodestyle, F pyflakes, I import sorting, UP pyupgrade,
-# B bugbear, DJ django-specific, C4 comprehensions.
 select = ["E", "W", "F", "I", "UP", "B", "DJ", "C4"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["config", "core"]
 
 [tool.ruff.lint.per-file-ignores]
-# The demo PARTS table reads as aligned columns. Wrapping those rows to 88
-# characters would make it harder to scan, not easier.
 "core/management/commands/seed_demo.py" = ["E501"]

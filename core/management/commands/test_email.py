@@ -1,12 +1,3 @@
-"""Prove the mail configuration works before trusting it with a reset link.
-
-    python manage.py test_email you@example.com
-
-Reports which backend is actually in use, then sends a real message and shows
-the real error if it fails. Guessing at SMTP settings by triggering password
-resets and waiting is a miserable way to spend an evening.
-"""
-
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.core.management.base import BaseCommand, CommandError

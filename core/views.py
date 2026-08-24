@@ -42,8 +42,6 @@ from .models import (
 )
 from .throttle import forget, too_many
 
-# ----------------------------------------------------------------- accounts
-
 
 class SignupView(CreateView):
     form_class = SignupForm
@@ -59,19 +57,12 @@ class SignupView(CreateView):
         return super().dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        # Signup is open by design, which also makes it a free way to fill
-        # someone else's database.
         if too_many(request, self.BUCKET, self.LIMIT, self.WINDOW):
             return render(request, "registration/throttled.html", status=429)
         return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
-        # Deliberately not calling super(): ModelFormMixin.form_valid() insists
-        # on a success_url or a get_absolute_url() on User, neither of which
-        # exists, and we redirect ourselves anyway.
         self.object = form.save()
-        # Straight in rather than bouncing them to a login form they just
-        # filled the credentials for.
         login(self.request, self.object)
         messages.success(
             self.request,
@@ -81,12 +72,6 @@ class SignupView(CreateView):
 
 
 class ThrottledLoginView(auth_views.LoginView):
-    """Django's login, but a wrong password costs you something.
-
-    Only failures count, so logging in ten times a day is free and guessing ten
-    passwords a minute is not.
-    """
-
     BUCKET = "login"
     LIMIT = 10
     WINDOW = 5 * 60
@@ -102,14 +87,6 @@ class ThrottledLoginView(auth_views.LoginView):
 
 
 class GuardedPasswordResetView(auth_views.PasswordResetView):
-    """Django's reset view, but honest when there's nowhere to send mail.
-
-    Without a mail server the stock view renders "check your inbox" and posts
-    the link to a server log nobody reads. The check happens per request rather
-    than when URLs are loaded, so setting EMAIL_HOST takes effect on the next
-    request instead of needing a redeploy.
-    """
-
     email_template_name = "registration/password_reset_email.txt"
     subject_template_name = "registration/password_reset_subject.txt"
     success_url = reverse_lazy("password_reset_done")
@@ -125,11 +102,6 @@ class GuardedPasswordResetView(auth_views.PasswordResetView):
 
 
 def healthz(request):
-    """Liveness probe for the platform. Deliberately not behind login.
-
-    Checks the database too: a container that booted but can't reach Postgres
-    is not healthy, and answering 200 would let it take traffic it can't serve.
-    """
     try:
         connection.ensure_connection()
     except OperationalError:
@@ -138,15 +110,11 @@ def healthz(request):
 
 
 class GuideView(TemplateView):
-    """How the app works. No login required: it holds nothing personal, and
-    someone deciding whether to sign up should be able to read it first."""
-
     template_name = "core/guide.html"
 
 
 @login_required
 def dashboard(request):
-    """What's on the bench, what you need to buy, what you're nearly out of."""
     user = request.user
 
     active = list(
@@ -160,9 +128,6 @@ def dashboard(request):
         project.held_count = sum(line.remaining for line in lines)
         project.short_count = sum(line.short for line in lines)
 
-    # One row per part you need to buy, from two sources that both count:
-    # what live builds asked for and couldn't get, and what you've simply put
-    # on the list. Totalled per part, because you buy per part, not per project.
     shortfall = {}
 
     for row in (
@@ -220,13 +185,8 @@ def dashboard(request):
 
 
 class OwnedMixin(LoginRequiredMixin):
-    """Every query in this app is scoped to whoever is logged in."""
-
     def get_queryset(self):
         return super().get_queryset().filter(user=self.request.user)
-
-
-# --------------------------------------------------------------------- parts
 
 
 class PartListView(OwnedMixin, ListView):
@@ -235,8 +195,6 @@ class PartListView(OwnedMixin, ListView):
     context_object_name = "parts"
     paginate_by = 100
 
-    # Whitelisted so a sort parameter can never reach order_by() unchecked.
-    # key -> (column heading, field or annotation to sort on, right-aligned)
     SORTABLE = {
         "name": ("Name", "name", False),
         "value": ("Value", "value", False),
@@ -247,7 +205,6 @@ class PartListView(OwnedMixin, ListView):
     }
 
     def sort_key(self):
-        """(key, descending), falling back to name ascending."""
         raw = self.request.GET.get("sort", "name")
         descending = raw.startswith("-")
         key = raw.lstrip("-")
@@ -274,8 +231,6 @@ class PartListView(OwnedMixin, ListView):
 
         key, descending = self.sort_key()
         field = self.SORTABLE[key][1]
-        # Name as a tiebreak so paging is stable when the sort column ties,
-        # which it will constantly on held and available.
         return qs.order_by(f"-{field}" if descending else field, "name")
 
     def get_context_data(self, **kwargs):
@@ -286,7 +241,6 @@ class PartListView(OwnedMixin, ListView):
         for candidate, (label, _, numeric) in self.SORTABLE.items():
             params = self.request.GET.copy()
             params.pop("page", None)
-            # Clicking the column you're already on flips the direction.
             params["sort"] = (
                 f"-{candidate}" if candidate == key and not descending else candidate
             )
@@ -312,8 +266,6 @@ class PartListView(OwnedMixin, ListView):
 
 
 class TagChoicesMixin:
-    """Hand the form the tags already in use, for autocomplete."""
-
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["known_tags"] = [tag for tag, _ in tag_counts(self.request.user)]
@@ -330,22 +282,17 @@ class PartCreateView(TagChoicesMixin, OwnedMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.user = self.request.user
-        # Part.save() opens the ledger for us.
         response = super().form_valid(form)
         messages.success(self.request, f"Added {self.object}.")
         return response
 
     def get_success_url(self):
-        # You are entering a whole bin in one sitting. Land back on an empty
-        # form with the cursor in the name field rather than on a list page.
         if "_addanother" in self.request.POST:
             return reverse("part_create")
         return reverse("part_list")
 
 
 class PartDetailView(OwnedMixin, DetailView):
-    """Where a part actually is: which builds hold it, and what has eaten it."""
-
     model = Part
     template_name = "core/part_detail.html"
     context_object_name = "part"
@@ -395,7 +342,6 @@ class PartDetailView(OwnedMixin, DetailView):
 @login_required
 @require_POST
 def part_add_stock(request, pk):
-    """A delivery arrived. Add to what you own without doing the arithmetic."""
     part = get_object_or_404(Part, pk=pk, user=request.user)
     form = AddStockForm(request.POST)
 
@@ -422,7 +368,6 @@ def part_add_stock(request, pk):
 
 
 def tag_counts(user):
-    """Every tag this person uses, with how many parts carry it."""
     counts = {}
     for tags in (
         Part.objects.filter(user=user).exclude(tags="").values_list("tags", flat=True)
@@ -435,7 +380,6 @@ def tag_counts(user):
 
 @login_required
 def tag_index(request):
-    """The canonical tag list, and the only place a typo can be undone."""
     if request.method == "POST":
         old = request.POST.get("old", "").strip()
         new = normalise_tags(request.POST.get("new", ""))
@@ -472,7 +416,6 @@ def tag_index(request):
 
 @login_required
 def part_duplicates(request):
-    """Parts that look like the same component written two ways."""
     parts = list(
         Part.objects.filter(user=request.user).with_availability().order_by("name")
     )
@@ -496,7 +439,6 @@ def part_duplicates(request):
 
 @login_required
 def part_merge(request, pk):
-    """Fold one part into another. Confirmation on GET, the merge on POST."""
     source = get_object_or_404(Part, pk=pk, user=request.user)
 
     if request.method == "POST":
@@ -537,7 +479,6 @@ def part_merge(request, pk):
 @login_required
 @require_POST
 def part_want(request, pk):
-    """Put a part on the shopping list without inventing a project for it."""
     part = get_object_or_404(Part, pk=pk, user=request.user)
     form = WantToBuyForm(request.POST)
 
@@ -556,12 +497,6 @@ def part_want(request, pk):
 
 @login_required
 def part_import(request):
-    """Paste a whole bin in one go.
-
-    All or nothing: if any line is malformed the whole paste is rejected with
-    the line numbers, because a half-applied import leaves you unable to tell
-    what landed.
-    """
     if request.method == "POST":
         form = BulkPartImportForm(request.POST, user=request.user)
         if form.is_valid():
@@ -598,11 +533,9 @@ class PartUpdateView(TagChoicesMixin, OwnedMixin, UpdateView):
     template_name = "core/part_form.html"
 
     def form_valid(self, form):
-        # Editing the quantity here means "I counted, this is the real number",
-        # so it goes into the ledger as a recount rather than changing silently.
         was = Part.objects.get(pk=self.object.pk).qty_owned
         now = form.cleaned_data["qty_owned"]
-        form.instance.qty_owned = was  # let adjust_stock move it, not the save
+        form.instance.qty_owned = was
         response = super().form_valid(form)
 
         if now != was:
@@ -628,17 +561,12 @@ class PartDeleteView(OwnedMixin, DeleteView):
         try:
             return super().form_valid(form)
         except ProtectedError:
-            # on_delete=PROTECT: a part named in any project, live or archived,
-            # is part of that record and can't quietly disappear from it.
             messages.error(
                 self.request,
                 f"{self.object} is used by a project, so it can't be deleted. "
                 f"Set its quantity to 0 instead.",
             )
             return HttpResponseRedirect(reverse("part_list"))
-
-
-# ------------------------------------------------------------------ projects
 
 
 class ProjectListView(OwnedMixin, ListView):
@@ -708,7 +636,6 @@ def _get_project(request, pk):
 
 @login_required
 def project_detail(request, pk):
-    """The project's parts list. This is the BOM - there is no separate one."""
     project = _get_project(request, pk)
     lines = project.lines.select_related("part").order_by("part__name")
 
@@ -717,9 +644,6 @@ def project_detail(request, pk):
             messages.error(request, "This project has been torn down.")
             return redirect("project_detail", pk=project.pk)
 
-        # The availability check reads stock and then writes an allocation.
-        # Without a transaction and a row lock, two submits landing together
-        # can both pass the check and between them allocate more than exists.
         with transaction.atomic():
             form = AllocationForm(request.POST, project=project, lock=True)
             if form.is_valid():
@@ -755,7 +679,6 @@ def project_detail(request, pk):
 @login_required
 @require_POST
 def line_remove(request, pk, line_pk):
-    """Un-allocate: the parts were never actually taken out of the bin."""
     project = _get_project(request, pk)
     line = get_object_or_404(ProjectPart, pk=line_pk, project=project)
 
@@ -777,7 +700,6 @@ def line_remove(request, pk, line_pk):
 @login_required
 @require_POST
 def line_return(request, pk, line_pk):
-    """Hand some parts back mid-build, without tearing the project down."""
     project = _get_project(request, pk)
 
     try:
@@ -785,8 +707,6 @@ def line_return(request, pk, line_pk):
     except (TypeError, ValueError):
         qty = 0
 
-    # Same read-then-write shape as allocation: lock the line so two returns
-    # can't both see the same `remaining` and hand back more than is held.
     with transaction.atomic():
         line = get_object_or_404(
             ProjectPart.objects.select_for_update().select_related("part"),
@@ -813,7 +733,6 @@ def line_return(request, pk, line_pk):
 
 @login_required
 def project_reopen(request, pk):
-    """Undo a teardown. Confirmation on GET, the real thing on POST."""
     project = _get_project(request, pk)
     detail_url = reverse("project_detail", args=[project.pk])
 
@@ -852,7 +771,6 @@ def project_reopen(request, pk):
 
 @login_required
 def project_teardown(request, pk):
-    """Say what became of everything this project is holding, then archive it."""
     project = _get_project(request, pk)
     detail_url = reverse("project_detail", args=[project.pk])
 

@@ -10,12 +10,6 @@ from django.utils import timezone
 
 
 def normalise_tags(raw):
-    """One canonical spelling of a tag string.
-
-    Always ", " separated with duplicates collapsed, which is what lets the
-    parts list filter on an exact tag in SQL instead of a substring match that
-    would make "i2c" also match "i2c-pullup".
-    """
     seen, out = set(), []
     for tag in (raw or "").split(","):
         tag = tag.strip()
@@ -27,7 +21,6 @@ def normalise_tags(raw):
 
 
 def tag_filter(tag):
-    """Match one whole tag inside a normalised comma-separated string."""
     tag = tag.strip()
     if not tag:
         return Q()
@@ -40,22 +33,11 @@ def tag_filter(tag):
 
 
 def match_key(name, value=""):
-    """A loose key for spotting the same component written two ways.
-
-    "10k", "10 k", "10K" and "10kΩ" are one resistor as far as a human is
-    concerned, and four separate rows as far as an exact match is concerned.
-
-    Full stops are deliberately kept: stripping them would fold 4.7k into 47k
-    and invent a duplicate that isn't one, which is worse than missing a real
-    one.
-    """
 
     def clean(text):
         text = unicodedata.normalize("NFKD", text or "").casefold()
-        text = text.replace("μ", "u").replace("µ", "u")  # micro signs
-        text = text.replace("ω", "")  # ohm sign, already casefolded
-        # Word boundary on purpose: folds "10 kohms" down to "10k" without
-        # mangling a part legitimately named something like "Ohmite".
+        text = text.replace("μ", "u").replace("µ", "u")
+        text = text.replace("ω", "")
         text = re.sub(r"ohms?\b", "", text)
         return re.sub(r"[\s\-_,/]+", "", text)
 
@@ -78,11 +60,6 @@ class MovementReason(models.TextChoices):
 
 class PartQuerySet(models.QuerySet):
     def with_availability(self):
-        """Annotate `held` and `available` in a single query.
-
-        held      = sum of un-accounted-for quantities across ACTIVE projects
-        available = qty_owned - held
-        """
         held_expr = Sum(
             F("allocations__qty_allocated")
             - F("allocations__qty_returned")
@@ -141,15 +118,6 @@ class Part(models.Model):
 
     @transaction.atomic
     def save(self, *args, **kwargs):
-        """Opening the history at the same moment the part exists.
-
-        A part created with a quantity has to explain where that quantity came
-        from, or its ledger starts one line short and every later reconciliation
-        reports drift that was never real. Doing it here rather than in the
-        views means nothing can forget: the seed command, the admin and the
-        shell all get it. bulk_create() skips save() by design, so the importer
-        writes its own opening lines.
-        """
         creating = self._state.adding
         self.tags = normalise_tags(self.tags)
         super().save(*args, **kwargs)
@@ -163,7 +131,6 @@ class Part(models.Model):
             )
 
     def compute_held(self):
-        """How many are locked inside active projects right now."""
         return self.allocations.filter(project__status=ProjectStatus.ACTIVE).aggregate(
             held=Coalesce(
                 Sum(
@@ -180,7 +147,6 @@ class Part(models.Model):
         return self.qty_owned - self.compute_held()
 
     def clean(self):
-        """qty_owned can never drop below what active projects are holding."""
         from django.core.exceptions import ValidationError
 
         if self.pk:
@@ -197,18 +163,9 @@ class Part(models.Model):
 
     @transaction.atomic
     def adjust_stock(self, delta, reason, project=None, note=""):
-        """The only sanctioned way to change qty_owned.
-
-        qty_owned stays a stored column because every list page reads it, but
-        nothing may move it except this method, which writes a StockMovement in
-        the same transaction. That is what makes "the number is wrong and I
-        can't tell why" answerable.
-        """
         if delta == 0:
             return None
 
-        # Lock the row: two deliveries logged at once must not both read the
-        # same balance and write the same balance_after.
         locked = Part.objects.select_for_update().get(pk=self.pk)
         new_total = locked.qty_owned + delta
 
@@ -239,16 +196,7 @@ class Part(models.Model):
 
     @transaction.atomic
     def receive(self, qty, note=""):
-        """A delivery arrived: stock goes up and the want list comes down.
-
-        Separate from adjust_stock because only a purchase satisfies a want. A
-        teardown reversal also increases stock and should not quietly tell you
-        that you no longer need to buy anything.
-        """
         movement = self.adjust_stock(qty, MovementReason.PURCHASE, note=note)
-        # Filtered in the database rather than on self.qty_to_buy, which may be
-        # stale: an instance loaded before the want was set would otherwise skip
-        # this and leave the part on the shopping list after it arrived.
         Part.objects.filter(pk=self.pk, qty_to_buy__gt=0).update(
             qty_to_buy=Greatest(F("qty_to_buy") - qty, Value(0))
         )
@@ -256,7 +204,6 @@ class Part(models.Model):
         return movement
 
     def set_stock(self, new_total, reason=MovementReason.CORRECTION, note=""):
-        """Set an absolute quantity. Recounts work this way; deliveries don't."""
         return self.adjust_stock(new_total - self.qty_owned, reason, note=note)
 
     def match_key(self):
@@ -264,18 +211,6 @@ class Part(models.Model):
 
     @transaction.atomic
     def merge_into(self, target):
-        """Fold this part into another and delete it.
-
-        Everything moves: allocation lines, quantities, want list and history.
-        Where both parts appear in the same project their lines are combined,
-        because the unique constraint means one project cannot hold two lines
-        for what is now one part.
-
-        The history is carried over rather than discarded, and every
-        balance_after on the target is recomputed in date order afterwards.
-        Two interleaved running balances would otherwise be nonsense, and the
-        ledger has to keep reconciling with qty_owned.
-        """
         if target.pk == self.pk:
             raise ValidationError("A part can't be merged into itself.")
         if target.user_id != self.user_id:
@@ -312,7 +247,6 @@ class Part(models.Model):
         )
         self.movements.update(part=target)
 
-        # Delete before recomputing, so the source's own row can't be counted.
         Part.objects.filter(pk=self.pk).delete()
         target.refresh_from_db()
 
@@ -367,16 +301,6 @@ class Project(models.Model):
 
     @transaction.atomic
     def tear_down(self, outcomes):
-        """Archive this project, deciding the fate of everything it holds.
-
-        `outcomes` is an iterable of (ProjectPart, returned, soldered, broken).
-        Every line must be accounted for exactly: the three numbers must sum to
-        that line's `remaining`. Returned parts become available again; soldered
-        and broken ones leave `qty_owned` permanently.
-
-        All of it lands in one transaction. A partial teardown would leave every
-        quantity in the app silently wrong.
-        """
         if self.status != ProjectStatus.ACTIVE:
             raise ValidationError("This project has already been torn down.")
 
@@ -404,8 +328,6 @@ class Project(models.Model):
             line.qty_returned += returned
             line.qty_soldered += soldered
             line.qty_broken += broken
-            # Remembered so reopen() can unpick this teardown without also
-            # undoing parts you handed back weeks earlier.
             line.teardown_returned = returned
             line.save(
                 update_fields=[
@@ -418,8 +340,6 @@ class Project(models.Model):
 
             lost = soldered + broken
             if lost:
-                # Through adjust_stock so the loss lands in the ledger with the
-                # project that caused it, rather than the number just dropping.
                 line.part.adjust_stock(
                     -lost,
                     MovementReason.TEARDOWN,
@@ -433,17 +353,6 @@ class Project(models.Model):
 
     @transaction.atomic
     def reopen(self):
-        """Undo a teardown and put the project back on the bench.
-
-        Teardown is the one operation here that destroys information, and it is
-        two clicks from a list page. Being unable to take it back made a
-        mis-click permanent, recoverable only by editing every affected part
-        from memory.
-
-        Soldered and broken are reversed in full, because nothing but a
-        teardown ever sets them. Returns are only reversed as far as this
-        teardown contributed, so parts handed back mid-build stay handed back.
-        """
         if self.is_active:
             raise ValidationError("This project is already on the bench.")
 
@@ -477,7 +386,6 @@ class Project(models.Model):
         self.save(update_fields=["status", "archived_at"])
 
     def teardown_summary(self):
-        """What this build cost, for the archived view."""
         return self.lines.aggregate(
             returned=models.Sum("qty_returned"),
             soldered=models.Sum("qty_soldered"),
@@ -486,13 +394,6 @@ class Project(models.Model):
 
 
 class StockMovement(models.Model):
-    """One line of history for a part's quantity.
-
-    Written only by Part.adjust_stock(). `balance_after` is stored rather than
-    recomputed so the history reads like a bank statement, and so drift between
-    the ledger and qty_owned is visible instead of theoretical.
-    """
-
     part = models.ForeignKey(
         Part,
         on_delete=models.CASCADE,
@@ -522,8 +423,6 @@ class StockMovement(models.Model):
 
 
 class ProjectPart(models.Model):
-    """One line of a project's BOM: this part, this many, and what became of them."""
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -588,17 +487,6 @@ class ProjectPart(models.Model):
         super().save(*args, **kwargs)
 
     def apply_defaults(self):
-        """A new line with only an allocation wanted exactly that much.
-
-        Kept out of __init__: mutating kwargs during construction is an odd
-        place to hide a rule, and it misses anyone who builds the object and
-        then assigns attributes. Called from both clean() and save() so
-        validating an unsaved line sees exactly what saving it would write.
-
-        Only on create, and only when nothing was asked for, so an explicit
-        qty_wanted is never overwritten and a shortfall line that got nothing
-        keeps the number it wanted.
-        """
         if self._state.adding and not self.qty_wanted:
             self.qty_wanted = self.qty_allocated
 
@@ -608,40 +496,22 @@ class ProjectPart(models.Model):
 
     @property
     def remaining(self):
-        """Still held by the project - not yet returned, soldered or broken."""
         return self.qty_allocated - self.accounted
 
     @property
     def short(self):
-        """How many more this build needs than it managed to take.
-
-        Non-zero means you ran out. The parts are not held by anyone - they
-        do not exist yet, which is exactly what a shopping list is for.
-        """
         return self.qty_wanted - self.qty_allocated
 
     @property
     def lost(self):
-        """Gone for good: soldered into the board or burned out."""
         return self.qty_soldered + self.qty_broken
 
     def clean(self):
-        """You cannot allocate parts you do not have.
-
-        Defaults first, so full_clean() on an unsaved line judges the same
-        values save() would store rather than a half-built row.
-
-        `available` for this line means qty_owned minus what *other* active
-        projects are holding - a line must not count against itself, or editing
-        an existing allocation would always look like an over-allocation.
-        """
         self.apply_defaults()
 
         if not self.part_id:
             return
 
-        # Django runs model clean() even when a form field failed validation,
-        # so any of these can still be None at this point.
         if self.qty_allocated is None:
             return
         self.qty_returned = self.qty_returned or 0

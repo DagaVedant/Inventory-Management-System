@@ -8,13 +8,6 @@ from .models import Part, ProjectPart, match_key
 
 
 class SignupForm(UserCreationForm):
-    """Account creation, optionally behind an invite code.
-
-    With SIGNUP_CODE unset the code field isn't rendered at all and anyone with
-    the URL can sign up. Set it in the environment and signup closes without a
-    deploy.
-    """
-
     signup_code = forms.CharField(
         required=False,
         label="Invite code",
@@ -38,20 +31,6 @@ class SignupForm(UserCreationForm):
 
 
 def parse_parts_text(text):
-    """Turn pasted lines into part fields.
-
-    One part per line, comma separated::
-
-        name, qty, value, package, tag, tag, ...
-
-    Only name and quantity are required. Everything from the fifth field
-    onward is rejoined as tags, which is what lets tags contain commas without
-    anyone having to escape anything. Blank lines and lines starting with #
-    are skipped.
-
-    Returns (rows, errors). Errors are (line_number, message) so the form can
-    point at the offending line rather than saying "something was wrong".
-    """
     rows, errors = [], []
     seen = {}
 
@@ -86,8 +65,6 @@ def parse_parts_text(text):
         package = fields[3] if len(fields) > 3 else ""
         tags = ", ".join(f for f in fields[4:] if f)
 
-        # Say so rather than truncating. Quietly storing "0805 surface mou"
-        # is worse than refusing the line and letting it be fixed.
         too_long = [
             label
             for label, text, limit in [
@@ -123,8 +100,6 @@ def parse_parts_text(text):
 
 
 class BulkPartImportForm(forms.Form):
-    """Paste a whole bin in at once instead of one form at a time."""
-
     text = forms.CharField(
         label="One part per line",
         widget=forms.Textarea(
@@ -162,8 +137,6 @@ class BulkPartImportForm(forms.Form):
         if not errors and not rows:
             raise forms.ValidationError("Nothing to import.")
 
-        # Nothing is created unless every line is good. A half-applied paste is
-        # worse than a rejected one - you can't tell what landed.
         if self.user is not None:
             existing = {}
             for part in Part.objects.filter(user=self.user):
@@ -200,12 +173,6 @@ class BulkPartImportForm(forms.Form):
         return text
 
     def save(self):
-        """Returns (created, topped_up).
-
-        Top-ups go through receive() so they land in the ledger as deliveries
-        and clear the shopping list, exactly as they would if typed in one at
-        a time.
-        """
         created = Part.objects.bulk_create(
             [Part(user=self.user, **row) for row in self.rows]
         )
@@ -215,12 +182,6 @@ class BulkPartImportForm(forms.Form):
 
 
 class AddStockForm(forms.Form):
-    """Recording a delivery, not correcting a miscount.
-
-    Corrections belong on the edit form where you set the absolute number;
-    this only ever goes up, so there is no ambiguity about which you meant.
-    """
-
     qty = forms.IntegerField(
         min_value=1,
         label="How many arrived",
@@ -229,8 +190,6 @@ class AddStockForm(forms.Form):
 
 
 class MergePartForm(forms.Form):
-    """Pick the part to keep. The other one is folded into it and deleted."""
-
     target = forms.ModelChoiceField(
         queryset=Part.objects.none(),
         label="Keep this part",
@@ -242,8 +201,6 @@ class MergePartForm(forms.Form):
         self.source = source
         if source is not None:
             others = Part.objects.filter(user=source.user).exclude(pk=source.pk)
-            # Likely matches first: whoever opened this page almost certainly
-            # wants one of them, and the full list can be hundreds long.
             likely = [
                 part.pk for part in others if part.match_key() == source.match_key()
             ]
@@ -258,8 +215,6 @@ class MergePartForm(forms.Form):
 
 
 class WantToBuyForm(forms.Form):
-    """How many of this to buy, regardless of any project."""
-
     qty = forms.IntegerField(
         min_value=0,
         label="Want to buy",
@@ -270,8 +225,6 @@ class WantToBuyForm(forms.Form):
 class PartForm(forms.ModelForm):
     def __init__(self, *args, known_tags=(), **kwargs):
         super().__init__(*args, **kwargs)
-        # A datalist, so typing "sen" offers "sensor" instead of quietly
-        # creating a second tag one character away from the first.
         if known_tags:
             self.fields["tags"].widget.attrs["list"] = "known-tags"
         self.known_tags = list(known_tags)
@@ -304,13 +257,6 @@ class PartForm(forms.ModelForm):
 
 
 class AllocationForm(forms.Form):
-    """Add a part to a project, or top up the line it already has.
-
-    Deliberately a plain Form rather than a ModelForm: a ModelForm re-applies
-    the submitted data to its instance in `_post_clean()`, which runs *after*
-    `clean()` and would overwrite a topped-up quantity with the raw one.
-    """
-
     part = forms.ModelChoiceField(queryset=Part.objects.none())
     qty_wanted = forms.IntegerField(
         min_value=1,
@@ -341,11 +287,6 @@ class AllocationForm(forms.Form):
             return cleaned
 
         if self.lock:
-            # Take a row lock on the part before reading availability, so a
-            # concurrent allocation of the same part waits for this one to
-            # commit instead of racing it. Requires an open transaction; a
-            # no-op on SQLite, which is fine because it serializes writes
-            # anyway.
             part = Part.objects.select_for_update().get(pk=part.pk)
             cleaned["part"] = part
 
@@ -359,18 +300,12 @@ class AllocationForm(forms.Form):
                 note=cleaned.get("note", ""),
             )
         elif cleaned.get("note"):
-            # Already on this project - top it up rather than rejecting the
-            # submission on the unique constraint.
             line.note = cleaned["note"]
 
-        # Everything this part has that isn't already spoken for by some other
-        # active project. This line's own holding doesn't count against it.
         held_elsewhere = part.compute_held() - (line.remaining if line.pk else 0)
         capacity = part.qty_owned - held_elsewhere
 
         line.qty_wanted += qty
-        # Take what's there and record the rest as short, rather than refusing
-        # the whole request. Running out is information, not an error.
         line.qty_allocated = min(line.qty_wanted, capacity + line.accounted)
 
         try:
@@ -388,8 +323,6 @@ class AllocationForm(forms.Form):
 
 
 class TeardownLineForm(forms.Form):
-    """One row of the teardown screen: what became of this part."""
-
     line_id = forms.IntegerField(widget=forms.HiddenInput)
     qty_returned = forms.IntegerField(
         min_value=0,
@@ -417,10 +350,6 @@ class TeardownLineForm(forms.Form):
     def clean(self):
         cleaned = super().clean()
 
-        # Scoped to the project being torn down. line_id comes straight from
-        # the POST, and without this filter an unrelated id would still be
-        # looked up and its quantity read back in the error message below,
-        # which is an answer this form has no business giving.
         lines = ProjectPart.objects.select_related("part", "project")
         if self.project is not None:
             lines = lines.filter(project=self.project)
@@ -434,8 +363,6 @@ class TeardownLineForm(forms.Form):
 
         cleaned["line"] = line
 
-        # Field-level errors are already reported; don't pile a confusing sum
-        # error on top of them.
         if self.errors:
             return cleaned
 

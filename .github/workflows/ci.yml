@@ -9,9 +9,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      # Not a secret: this only exists so settings.py can start. The real key
-      # lives in the deployment environment.
-      # Long enough to satisfy check --deploy's 50-character minimum.
       SECRET_KEY: ci-only-not-a-real-secret-just-long-enough-for-the-deploy-check
       DEBUG: "True"
 
@@ -20,8 +17,6 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          # Matches the runtime Vercel builds against, pinned in
-          # .python-version so the two cannot drift apart.
           python-version: "3.12"
           cache: pip
 
@@ -38,16 +33,12 @@ jobs:
         run: python manage.py check
 
       - name: Missing migrations
-        # Catches a model changed without makemigrations, which would deploy
-        # fine and then fail at runtime against the real database.
         run: python manage.py makemigrations --check --dry-run
 
       - name: Tests
         run: python manage.py test core
 
       - name: Deployment checklist
-        # Runs as production would see it, so a security setting can't quietly
-        # regress. EMAIL_HOST is set so the mail backend check passes here.
         env:
           DEBUG: "False"
           SITE_DOMAIN: ci.example.com

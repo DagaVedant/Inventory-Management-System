@@ -1,15 +1,3 @@
-"""Fill an account with believable data so the app is worth looking at.
-
-    python manage.py seed_demo --user demo --password something
-
-Wipes and rebuilds that user's parts and projects, so it is safe to re-run.
-
-The four projects are chosen to show every state the model has: one holding a
-lot, one with parts already handed back mid-build, one torn down with real
-losses, and one torn down clean. One part is fully committed so `available: 0`
-appears somewhere on the list.
-"""
-
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -18,51 +6,70 @@ from core.models import Part, Project, ProjectPart
 
 User = get_user_model()
 
-# fmt: off
-# Hand-aligned on purpose: as columns this scans in one pass, and letting the
-# formatter wrap it turns 38 readable rows into 200 lines of noise.
 PARTS = [
-    # name, value, package, pins, voltage, qty, tags
-    ("ESP32 devkit v1",            "",       "module",       30, "5V",     2, "mcu, wifi, bluetooth"),
-    ("Arduino Nano",               "",       "module",       30, "5V",     4, "mcu"),
-    ("Raspberry Pi Pico",          "",       "module",       40, "3V3",    3, "mcu, rp2040"),
-    ("DHT22 temp/humidity",        "",       "module",        4, "3V3-5V", 4, "sensor, temperature"),
-    ("BMP280 pressure",            "",       "module",        4, "3V3",    3, "sensor, pressure, i2c"),
-    ("MPU-6050 6-axis IMU",        "",       "module",        8, "3V3-5V", 3, "sensor, imu, i2c"),
-    ("HC-SR04 ultrasonic",         "",       "module",        4, "5V",     5, "sensor, distance"),
-    ("LDR photoresistor",          "",       "through-hole",  2, "",      22, "sensor, light"),
-    ("DS18B20 temperature",        "",       "TO-92",         3, "3V3-5V", 6, "sensor, onewire"),
-    ("SSD1306 OLED 128x64",        "",       "module",        4, "3V3-5V", 2, "display, i2c"),
-    ("16x2 character LCD",         "",       "module",       16, "5V",     2, "display"),
-    ("WS2812B LED strip 1m",       "",       "strip",         3, "5V",     3, "led, addressable"),
-    ("Resistor",                   "220R",   "through-hole",  2, "",     140, "passive, resistor"),
-    ("Resistor",                   "1k",     "through-hole",  2, "",     160, "passive, resistor"),
-    ("Resistor",                   "4.7k",   "through-hole",  2, "",      95, "passive, i2c-pullup"),
-    ("Resistor",                   "10k",    "through-hole",  2, "",     180, "passive, resistor"),
-    ("Resistor",                   "10KΩ",   "through-hole",  2, "",       6, "passive, resistor"),
-    ("Ceramic capacitor",          "100nF",  "through-hole",  2, "",     120, "passive, decoupling"),
-    ("Electrolytic capacitor",     "470uF",  "through-hole",  2, "16V",   24, "passive, capacitor"),
-    ("Electrolytic capacitor",     "470 µF", "through-hole",  2, "16V",    4, "passive, capacitor"),
-    ("Electrolytic capacitor",     "1000uF", "through-hole",  2, "25V",   12, "passive, capacitor"),
-    ("LED",                        "red 5mm",   "through-hole", 2, "",    60, "led, indicator"),
-    ("LED",                        "green 5mm", "through-hole", 2, "",    45, "led, indicator"),
-    ("LED",                        "blue 5mm",  "through-hole", 2, "",    30, "led, indicator"),
-    ("AMS1117-3.3 regulator",      "",       "SOT-223",       3, "3V3",    8, "power, regulator"),
-    ("LM7805 regulator",           "",       "TO-220",        3, "5V",     5, "power, regulator"),
-    ("2N2222 transistor",          "",       "TO-92",         3, "",      30, "transistor, npn"),
-    ("IRLZ44N MOSFET",             "",       "TO-220",        3, "",       8, "transistor, mosfet"),
-    ("1N4148 diode",               "",       "through-hole",  2, "",      50, "diode"),
-    ("1N4007 diode",               "",       "through-hole",  2, "1000V", 35, "diode, rectifier"),
-    ("Tactile push button",        "",       "through-hole",  4, "",      40, "button, input"),
-    ("Rotary encoder KY-040",      "",       "module",        5, "5V",     4, "input, encoder"),
-    ("Micro servo SG90",           "",       "module",        3, "5V",     6, "actuator, servo"),
-    ("28BYJ-48 stepper + driver",  "",       "module",        5, "5V",     3, "actuator, stepper"),
-    ("Piezo buzzer",               "",       "through-hole",  2, "5V",     9, "audio, buzzer"),
-    ("Perfboard 70x90mm",          "",       "board",         0, "",       6, "board, perfboard"),
-    ("Screw terminal 2-way",       "",       "through-hole",  2, "",      28, "connector"),
-    ("Pin header 40-way",          "",       "strip",        40, "",      15, "connector, header"),
+    ("ESP32 devkit v1", "", "module", 30, "5V", 2, "mcu, wifi, bluetooth"),
+    ("Arduino Nano", "", "module", 30, "5V", 4, "mcu"),
+    ("Raspberry Pi Pico", "", "module", 40, "3V3", 3, "mcu, rp2040"),
+    ("DHT22 temp/humidity", "", "module", 4, "3V3-5V", 4, "sensor, temperature"),
+    ("BMP280 pressure", "", "module", 4, "3V3", 3, "sensor, pressure, i2c"),
+    ("MPU-6050 6-axis IMU", "", "module", 8, "3V3-5V", 3, "sensor, imu, i2c"),
+    ("HC-SR04 ultrasonic", "", "module", 4, "5V", 5, "sensor, distance"),
+    ("LDR photoresistor", "", "through-hole", 2, "", 22, "sensor, light"),
+    ("DS18B20 temperature", "", "TO-92", 3, "3V3-5V", 6, "sensor, onewire"),
+    ("SSD1306 OLED 128x64", "", "module", 4, "3V3-5V", 2, "display, i2c"),
+    ("16x2 character LCD", "", "module", 16, "5V", 2, "display"),
+    ("WS2812B LED strip 1m", "", "strip", 3, "5V", 3, "led, addressable"),
+    ("Resistor", "220R", "through-hole", 2, "", 140, "passive, resistor"),
+    ("Resistor", "1k", "through-hole", 2, "", 160, "passive, resistor"),
+    ("Resistor", "4.7k", "through-hole", 2, "", 95, "passive, i2c-pullup"),
+    ("Resistor", "10k", "through-hole", 2, "", 180, "passive, resistor"),
+    ("Resistor", "10KΩ", "through-hole", 2, "", 6, "passive, resistor"),
+    ("Ceramic capacitor", "100nF", "through-hole", 2, "", 120, "passive, decoupling"),
+    (
+        "Electrolytic capacitor",
+        "470uF",
+        "through-hole",
+        2,
+        "16V",
+        24,
+        "passive, capacitor",
+    ),
+    (
+        "Electrolytic capacitor",
+        "470 µF",
+        "through-hole",
+        2,
+        "16V",
+        4,
+        "passive, capacitor",
+    ),
+    (
+        "Electrolytic capacitor",
+        "1000uF",
+        "through-hole",
+        2,
+        "25V",
+        12,
+        "passive, capacitor",
+    ),
+    ("LED", "red 5mm", "through-hole", 2, "", 60, "led, indicator"),
+    ("LED", "green 5mm", "through-hole", 2, "", 45, "led, indicator"),
+    ("LED", "blue 5mm", "through-hole", 2, "", 30, "led, indicator"),
+    ("AMS1117-3.3 regulator", "", "SOT-223", 3, "3V3", 8, "power, regulator"),
+    ("LM7805 regulator", "", "TO-220", 3, "5V", 5, "power, regulator"),
+    ("2N2222 transistor", "", "TO-92", 3, "", 30, "transistor, npn"),
+    ("IRLZ44N MOSFET", "", "TO-220", 3, "", 8, "transistor, mosfet"),
+    ("1N4148 diode", "", "through-hole", 2, "", 50, "diode"),
+    ("1N4007 diode", "", "through-hole", 2, "1000V", 35, "diode, rectifier"),
+    ("Tactile push button", "", "through-hole", 4, "", 40, "button, input"),
+    ("Rotary encoder KY-040", "", "module", 5, "5V", 4, "input, encoder"),
+    ("Micro servo SG90", "", "module", 3, "5V", 6, "actuator, servo"),
+    ("28BYJ-48 stepper + driver", "", "module", 5, "5V", 3, "actuator, stepper"),
+    ("Piezo buzzer", "", "through-hole", 2, "5V", 9, "audio, buzzer"),
+    ("Perfboard 70x90mm", "", "board", 0, "", 6, "board, perfboard"),
+    ("Screw terminal 2-way", "", "through-hole", 2, "", 28, "connector"),
+    ("Pin header 40-way", "", "strip", 40, "", 15, "connector, header"),
 ]
-# fmt: on
 
 
 class Command(BaseCommand):
@@ -109,8 +116,6 @@ class Command(BaseCommand):
                 tags=tags,
             )
 
-        # 1. On the bench, holding a lot. Both ESP32s are committed, so this
-        #    part shows available: 0 on the parts list.
         weather = Project.objects.create(
             user=user,
             name="Weather station",
@@ -135,7 +140,6 @@ class Command(BaseCommand):
                 project=weather, part=parts[key], qty_allocated=qty
             )
 
-        # 2. On the bench, with parts already handed back mid-build.
         parking = Project.objects.create(
             user=user,
             name="Garage parking sensor",
@@ -157,13 +161,10 @@ class Command(BaseCommand):
             ProjectPart.objects.create(
                 project=parking, part=parts[key], qty_allocated=qty
             )
-        # Second ultrasonic turned out to be unnecessary - back on the shelf.
         line = parking.lines.get(part=parts["HC-SR04 ultrasonic"])
         line.qty_returned = 1
         line.save(update_fields=["qty_returned"])
 
-        # Two builds that want more than exists, so the shopping list has
-        # something on it and the shortfall columns aren't all zero.
         for project, key, extra in [
             (parking, "SSD1306 OLED 128x64", 2),
             (weather, "DS18B20 temperature", 4),
@@ -173,7 +174,6 @@ class Command(BaseCommand):
             line.qty_wanted += extra
             line.save(update_fields=["qty_wanted"])
 
-        # 3. Torn down, with real losses. This is the interesting one.
         balancer = Project.objects.create(
             user=user,
             name="Self-balancing robot",
@@ -200,7 +200,6 @@ class Command(BaseCommand):
             outcomes.append((line, returned, soldered, broken))
         balancer.tear_down(outcomes)
 
-        # 4. Torn down clean - everything came back.
         matrix = Project.objects.create(
             user=user,
             name="Desk lamp colour test",

@@ -1,16 +1,8 @@
-# Generated, then given a backfill by hand. Django 6.1 on 2026-08-21 19:20
-
 import django.db.models.deletion
 from django.db import migrations, models
 
 
 def opening_balances(apps, schema_editor):
-    """Give every existing part a starting line so its history isn't blank.
-
-    Without this the ledger begins mid-story: a part you own 180 of would show
-    no movements at all, and the first recount would look like it came from
-    nowhere.
-    """
     Part = apps.get_model("core", "Part")
     StockMovement = apps.get_model("core", "StockMovement")
     StockMovement.objects.bulk_create(
@@ -29,7 +21,7 @@ def opening_balances(apps, schema_editor):
 
 
 def drop_openings(apps, schema_editor):
-    """Nothing to undo: the table is about to be dropped."""
+    pass
 
 
 class Migration(migrations.Migration):

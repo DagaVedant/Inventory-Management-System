@@ -2,18 +2,12 @@ from django.db import migrations, models
 
 
 def backfill_wanted(apps, schema_editor):
-    """Every existing line got exactly what it asked for.
-
-    The new field defaults to 1, which would leave a line that allocated 5
-    looking as though it wanted 1 - and would fail the allocated <= wanted
-    constraint added straight after. Set wanted to what was actually taken.
-    """
     ProjectPart = apps.get_model("core", "ProjectPart")
     ProjectPart.objects.update(qty_wanted=models.F("qty_allocated"))
 
 
 def unbackfill(apps, schema_editor):
-    """Nothing to undo: the column is about to be dropped."""
+    pass
 
 
 class Migration(migrations.Migration):
@@ -40,7 +34,6 @@ class Migration(migrations.Migration):
                 help_text="How many it actually got. Less than wanted means short."
             ),
         ),
-        # Must run before the constraints below, or existing rows fail them.
         migrations.RunPython(backfill_wanted, unbackfill),
         migrations.AddConstraint(
             model_name="projectpart",
