@@ -4,137 +4,61 @@
 {% block content %}
 <div style="max-width:44rem">
 
-<hgroup>
-  <h1>How it works</h1>
-  <p>Two minutes, then you can ignore this forever.</p>
-</hgroup>
+<h1>How it works</h1>
 
-<article>
-  <strong>Parts don't get used up. They get held.</strong><br>
-  A project borrows parts from your bin and keeps them until you tear it down.
-  Then most of them come back, minus the ones soldered into the board and the
-  ones that died.
-</article>
+<p>A project borrows parts and holds them until you tear it down. Most come
+   back. The ones soldered in or broken do not.</p>
 
-<p>That means every part has three numbers, and only the first one is stored:</p>
-
+<h2>Three numbers</h2>
 <figure>
 <table>
   <tbody>
     <tr>
       <th scope="row">Owned</th>
-      <td>Everything you have. Loose in the bin, plus whatever live builds are
-          holding.</td>
+      <td>Everything you have, loose or inside a live build.</td>
     </tr>
     <tr>
       <th scope="row">Held</th>
-      <td>Sitting inside a project right now. You own them, you just can't
-          reach them.</td>
+      <td>Inside a project right now.</td>
     </tr>
     <tr>
       <th scope="row">Available</th>
-      <td><strong>Owned minus held.</strong> The number you actually care
-          about.</td>
+      <td>Owned minus held.</td>
     </tr>
   </tbody>
 </table>
 </figure>
 
-<h2>1. Get your parts in</h2>
-<p>
-  The fast way is <a href="{% url 'part_import' %}">Import</a>: paste a list,
-  one part per line. Name and quantity are all that's required.
-</p>
-<pre><code>10k resistor, 180, 10k, through-hole, passive, resistor
-DHT22, 4
-ESP32 devkit, 2, , module, mcu, wifi</code></pre>
-<p class="muted">
-  The fields are name, quantity, value, package, then tags. Anything after the
-  fourth comma becomes a tag, so tags can contain commas. If one line is
-  malformed nothing is imported and you're told which line, so you can't end up
-  half done without knowing it.
-</p>
-<p>Or use <a href="{% url 'part_create' %}">Add part</a> and hit
-   <strong>Save and add another</strong>, which puts you back on an empty form
-   with the cursor in the name field.</p>
-
-<h2>2. Start a build</h2>
-<p>
-  Make a project, then add the parts it needs. Allocating doesn't change what
-  you own, only what's available, because the parts are still yours. They're
-  just spoken for.
-</p>
-
-<h2>3. When you haven't got enough</h2>
-<p>
-  Asking for six when you have two isn't an error. You get the two, and the
-  other four are recorded as <strong>short</strong>. Short parts appear on the
-  shopping list on the <a href="{% url 'dashboard' %}">Bench</a>, totalled per
-  part across all your live builds, because you buy per part rather than per
-  project.
-</p>
-
-<p>
-  You can also put something on the list without a project at all. Open a
-  part's page and set <strong>Want to buy</strong>. That's for "I'm running low
-  on 10k resistors", which has nothing to do with any particular build. Both
-  sources add up on one row, and a delivery takes it back off.
-</p>
-
-<h2>4. Changed your mind mid-build</h2>
-<p>
-  <strong>Return</strong> on a project line hands parts straight back to the
-  shelf without ending the project. <strong>Remove</strong> deletes a line you
-  never actually pulled parts for.
-</p>
-
-<h2>5. Tear it down</h2>
-<p>
-  This is the part that matters. When a build is finished or scrapped, hit
-  <strong>Tear down</strong> and say what became of every part:
-</p>
+<h2>Teardown</h2>
 <figure>
 <table>
   <tbody>
     <tr>
       <th scope="row">Returned</th>
-      <td>Back on the shelf and available again.</td>
+      <td>Back on the shelf.</td>
     </tr>
     <tr>
       <th scope="row">Soldered in</th>
-      <td>Inside a finished board. Gone for good.</td>
+      <td>Gone for good.</td>
     </tr>
     <tr>
       <th scope="row">Broken</th>
-      <td>Burned out or snapped. Gone for good.</td>
+      <td>Gone for good.</td>
     </tr>
   </tbody>
 </table>
 </figure>
-<p class="muted">
-  Every line has to add up exactly to what the project was holding, with no
-  leftovers. Everything is pre-filled as returned, so a clean teardown is one
-  click. Soldered and broken are the only two ways a part ever leaves your
-  inventory.
-</p>
-<p>
-  The project is then archived. It keeps its parts list forever, so you can
-  look back at what a build was made of and what it cost you.
-</p>
-<p>
-  <strong>Got it wrong?</strong> Archived projects have a <strong>Reopen</strong>
-  button. It puts the project back on the bench and returns everything the
-  teardown wrote off. Parts you handed back during the build stay handed back,
-  because only the teardown itself is reversed.
-</p>
+<p>Each line must add up to what the project was holding. Reopen undoes it.</p>
 
-<h2>Where a number came from</h2>
-<p>
-  Every change to a quantity is recorded: opening balance, delivery, recount,
-  and what a teardown consumed. A part's page shows the whole run, with the
-  balance after each one, so "that number looks wrong" is a question with an
-  answer rather than a shrug.
-</p>
+<h2>Short</h2>
+<p>Asking for six when you own two gets you the two. The other four are
+   recorded as short and land on the shopping list on the
+   <a href="{% url 'dashboard' %}">Bench</a>.</p>
+
+<h2>Import format</h2>
+<pre><code>name, quantity, value, package, tag, tag, ...
+10k resistor, 180, 10k, through-hole, passive
+DHT22, 4</code></pre>
 
 <h2>Where things live</h2>
 <figure>
@@ -142,72 +66,28 @@ ESP32 devkit, 2, , module, mcu, wifi</code></pre>
   <tbody>
     <tr>
       <th scope="row"><a href="{% url 'dashboard' %}">Bench</a></th>
-      <td>What's in progress, what to buy, what you're nearly out of.</td>
+      <td>In progress, what to buy, what is running low.</td>
     </tr>
     <tr>
       <th scope="row"><a href="{% url 'part_list' %}">Parts</a></th>
-      <td>Everything you own. Search it, and click any column to sort.
-          Availability ascending answers "what am I nearly out of".</td>
+      <td>Everything you own. Search it, click a column to sort.</td>
     </tr>
     <tr>
       <th scope="row"><a href="{% url 'project_list' %}">Projects</a></th>
-      <td>Live builds and everything you've torn down.</td>
-    </tr>
-    <tr>
-      <th scope="row">A part's own page</th>
-      <td>Click any part name. Shows which builds are holding it, every
-          finished build that ate some, and its full history.</td>
+      <td>Live builds and everything torn down.</td>
     </tr>
     <tr>
       <th scope="row"><a href="{% url 'part_duplicates' %}">Duplicates</a></th>
-      <td>Parts that look like the same component written two ways, and the
-          merge that folds them back together.</td>
+      <td><code>10k</code> and <code>10k&#937;</code> are one part.
+          <code>4.7k</code> and <code>47k</code> are not.</td>
+    </tr>
+    <tr>
+      <th scope="row"><a href="{% url 'tag_index' %}">Tags</a></th>
+      <td>Rename or remove a tag across every part at once.</td>
     </tr>
   </tbody>
 </table>
 </figure>
-
-<h2>Tags</h2>
-<p>
-  Tags group things the columns can't: <code>i2c</code>, <code>3v3</code>,
-  <code>salvaged</code>. Click any tag to filter the parts list to it, and the
-  add form autocompletes tags you already use, so a typo doesn't quietly become
-  a second tag one character away from the first.
-</p>
-<p class="muted">
-  <a href="{% url 'tag_index' %}">Tags</a> lists them all with counts, and lets
-  you rename one across every part at once, or remove it. A part's page also
-  shows others sharing its tags under <strong>Might do instead</strong>, which
-  is as close to a substitutes list as this app pretends to get: whether one
-  actually substitutes is your call.
-</p>
-
-<h2>Two rows for one component</h2>
-<p>
-  <code>10k</code>, <code>10 K</code> and <code>10k&#937;</code> are one
-  resistor to you and three rows to a database, and your count ends up split
-  across all three. The importer refuses near-duplicates, a part's page warns
-  you when it spots one, and
-  <a href="{% url 'part_duplicates' %}">Duplicates</a> lists every group it can
-  find.
-</p>
-<p class="muted">
-  <strong>Merge</strong> folds one into the other: quantities add up, project
-  lines combine, and the history carries over. <code>4.7k</code> and
-  <code>47k</code> are correctly left alone.
-</p>
-
-<h2>Two things worth knowing</h2>
-<p>
-  <strong>Bought more?</strong> Use <strong>Add stock</strong> on the part's
-  page. It adds to what you own so you don't do the arithmetic yourself.
-  Fixing a miscount is different: edit the part and set the real number.
-</p>
-<p>
-  <strong>Numbers drifted?</strong> They will. Count what's actually in the bin
-  and edit the part. The app can't stop you being wrong, only make being right
-  cheap.
-</p>
 
 {% if not user.is_authenticated %}
   <p style="margin-top:2rem">
