@@ -8,3 +8,8 @@ backup_*.json
 
 .vercel
 .env*
+
+# Dropped in by the Neon marketplace integration: agent tooling docs,
+# nothing to do with the application.
+.agents/
+skills-lock.json

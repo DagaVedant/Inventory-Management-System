@@ -2,7 +2,7 @@
 
 an electronics parts inventory that tracks how many of each component you own, how many are locked inside projects right now, and how many you can actually grab off the bench.
 
-**try it:** https://web-production-d6073.up.railway.app
+**try it:** https://inventory-system-manager.vercel.app
 **demo login:** `demo` / `stardancedemo`
 
 ## what it is

@@ -8,7 +8,7 @@ available to use.
 
 ## try it
 
-**[web-production-d6073.up.railway.app](https://web-production-d6073.up.railway.app)**
+**[inventory-system-manager.vercel.app](https://inventory-system-manager.vercel.app)**
 
 sign up with any username and password. it asks for nothing else, no email and
 no confirmation step.
@@ -113,7 +113,8 @@ wanted, accounted can never exceed allocated.
 ## stack
 
 django 6.1, postgres in production and sqlite locally, whitenoise, gunicorn,
-[pico.css](https://picocss.com). deployed on railway. no javascript.
+[pico.css](https://picocss.com). deployed on vercel with a neon postgres.
+no javascript.
 
 ## credits
 
