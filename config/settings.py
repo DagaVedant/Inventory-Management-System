@@ -30,23 +30,35 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = []
 
-# The public hostname, however the host chooses to announce it. Railway sets
-# RAILWAY_PUBLIC_DOMAIN on its own; everywhere else set SITE_DOMAIN by hand,
-# comma separated if there is more than one. Reading both means changing hosting
-# provider is an environment change rather than a code change.
-SITE_DOMAINS = [
-    host.strip()
-    for host in (
-        os.environ.get("SITE_DOMAIN")
-        or os.environ.get("RAILWAY_PUBLIC_DOMAIN")
-        or ""
-    ).split(",")
-    if host.strip()
-]
+# The public hostname, however the host chooses to announce it. Most platforms
+# publish their own, so read those rather than making the deploy depend on
+# somebody remembering to set a variable by hand. SITE_DOMAIN is the manual
+# escape hatch and wins, comma separated if there is more than one.
+#
+# Vercel is listed twice on purpose: the production domain is stable, while
+# VERCEL_URL is unique per deployment and is the only way a preview build knows
+# what it is being called.
+SITE_DOMAINS = []
+
+for _source in (
+    os.environ.get("SITE_DOMAIN"),
+    os.environ.get("RAILWAY_PUBLIC_DOMAIN"),
+    os.environ.get("VERCEL_PROJECT_PRODUCTION_URL"),
+    os.environ.get("VERCEL_URL"),
+):
+    for _host in (_source or "").split(","):
+        _host = _host.strip()
+        if _host and _host not in SITE_DOMAINS:
+            SITE_DOMAINS.append(_host)
 
 if SITE_DOMAINS:
     ALLOWED_HOSTS += SITE_DOMAINS
-    CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in SITE_DOMAINS]
+    # A leading dot is Django's "any subdomain" form for ALLOWED_HOSTS, but CSRF
+    # spells the same idea with an explicit star.
+    CSRF_TRUSTED_ORIGINS = [
+        f"https://*{host}" if host.startswith(".") else f"https://{host}"
+        for host in SITE_DOMAINS
+    ]
 
 if DEBUG:
     ALLOWED_HOSTS += ["localhost", "127.0.0.1"]

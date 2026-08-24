@@ -1,5 +1,15 @@
 {
+  "services": {
+    "web": {
+      "root": ".",
+      "entrypoint": "config/wsgi.py",
+      "buildCommand": "python manage.py migrate"
+    }
+  },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+    {
+      "source": "/(.*)",
+      "destination": { "type": "service", "service": "web" }
+    }
   ]
 }
