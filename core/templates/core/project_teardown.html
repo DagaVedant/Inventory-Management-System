@@ -4,15 +4,8 @@
 {% block content %}
 <hgroup>
   <h1>Tear down {{ project.name }}</h1>
-  <p>This project is holding <strong>{{ total_held }}</strong>
-     part{{ total_held|pluralize }}. Say what became of each one.</p>
+  <p>Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}.</p>
 </hgroup>
-
-<article>
-  <strong>Returned</strong> go back on the shelf and become available again.<br>
-  <strong>Soldered in</strong> and <strong>broken</strong> leave your inventory
-  for good. Those are the only two ways a part disappears.
-</article>
 
 <form method="post">
   {% csrf_token %}
@@ -54,10 +47,6 @@
     </tbody>
   </table>
   </figure>
-
-  <p class="muted"><small>Each row must add up to exactly what's still held,
-  no leftovers. Everything is pre-filled as returned, so a clean teardown is one
-  click.</small></p>
 
   <div style="display:flex; gap:.5rem; align-items:center;">
     <button type="submit">Tear down and archive</button>

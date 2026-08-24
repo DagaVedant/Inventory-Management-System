@@ -2,15 +2,11 @@
 {% block title %}Projects{% endblock %}
 
 {% block content %}
-<hgroup>
-  <h1>Projects</h1>
-  <p>A project holds parts until you tear it down.</p>
-</hgroup>
+<h1>Projects</h1>
 
 <p><a href="{% url 'project_create' %}" role="button">New project</a></p>
 
 <h2>Active</h2>
-{% if active %}
 <figure>
 <table>
   <thead>
@@ -34,16 +30,14 @@
         {% endif %}
       </td>
     </tr>
+    {% empty %}
+    <tr><td colspan="4" class="muted">Nothing on the bench.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
-{% else %}
-  <p class="muted">Nothing on the bench.</p>
-{% endif %}
 
 <h2>Torn down</h2>
-{% if archived %}
 <figure>
 <table>
   <thead>
@@ -65,13 +59,10 @@
            class="secondary outline btn-sm">Reopen</a>
       </td>
     </tr>
+    {% empty %}
+    <tr><td colspan="4" class="muted">Nothing torn down yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
-<p class="muted"><small>Archived projects hold nothing, but they keep the record
-of what they were built from and what it cost you in dead parts.</small></p>
-{% else %}
-  <p class="muted">Nothing torn down yet.</p>
-{% endif %}
 {% endblock %}

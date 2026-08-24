@@ -8,13 +8,6 @@
 </hgroup>
 
 {% if duplicates %}
-<article>
-  These look like the same component written more than one way. Case, spacing,
-  hyphens, micro signs and the word "ohm" are all ignored when comparing, so
-  <code>10k</code>, <code>10 K</code> and <code>10kΩ</code> count as one part.
-  <code>4.7k</code> and <code>47k</code> do not.
-</article>
-
 {% for group in duplicates %}
 <figure>
 <table>
@@ -50,14 +43,9 @@
 </figure>
 {% endfor %}
 
-<p class="muted"><small>Merging keeps one part and folds the other into it:
-quantities add up, project lines combine, and the history carries over. The
-one you merge away is deleted.</small></p>
-
 {% else %}
   <article>
     <p><strong>Nothing looks duplicated.</strong></p>
-    <p class="muted">Worth checking again after a big import.</p>
   </article>
 {% endif %}
 

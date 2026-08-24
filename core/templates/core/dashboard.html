@@ -12,15 +12,12 @@
 {% if not total_parts %}
   <article>
     <p><strong>Nothing in here yet.</strong></p>
-    <p class="muted">The fastest way in is to paste a list: one part per line,
-       name and quantity are all you need.</p>
     <a href="{% url 'part_import' %}" role="button">Paste your bin in</a>
     <a href="{% url 'part_create' %}" role="button" class="secondary">Add one at a time</a>
   </article>
 {% endif %}
 
 <h2>On the bench</h2>
-{% if active %}
 <figure>
 <table>
   <thead>
@@ -50,14 +47,17 @@
         {% endif %}
       </td>
     </tr>
+    {% empty %}
+    <tr>
+      <td colspan="5" class="muted">
+        Nothing on the bench.
+        <a href="{% url 'project_create' %}">Start a project</a>.
+      </td>
+    </tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
-{% else %}
-  <p class="muted">Nothing on the bench.
-     <a href="{% url 'project_create' %}">Start a project</a>.</p>
-{% endif %}
 
 <h2>Shopping list</h2>
 {% if shortfall %}
@@ -87,12 +87,8 @@
   </tbody>
 </table>
 </figure>
-<p class="muted"><small><strong>For builds</strong> is what live projects asked
-for and couldn't get. <strong>Wanted</strong> is what you put on the list
-yourself, from a part's own page.</small></p>
 {% else %}
-  <p class="muted">Nothing to buy. Every live build got what it asked for, and
-   you haven't put anything on the list.</p>
+  <p class="muted">Nothing to buy.</p>
 {% endif %}
 
 {% if running_low %}
@@ -124,7 +120,5 @@ yourself, from a part's own page.</small></p>
   </tbody>
 </table>
 </figure>
-<p class="muted"><small>Lowest availability first. Zero means every one you own
-is inside a live build.</small></p>
 {% endif %}
 {% endblock %}

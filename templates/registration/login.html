@@ -3,10 +3,7 @@
 
 {% block content %}
 <div style="max-width:22rem; margin:3rem auto;">
-  <hgroup>
-    <h1>Inventory System</h1>
-    <p>Parts don't get used up. They get held by a project until you tear it down.</p>
-  </hgroup>
+  <h1>Inventory System</h1>
 
   {% if form.errors %}
     <article>That username and password don't match.</article>
@@ -18,10 +15,7 @@
     <button type="submit">Log in</button>
   </form>
 
-  <p>
-    No account? <a href="{% url 'signup' %}">Create one</a>. It asks for a
-    username and a password and nothing else.
-  </p>
+  <p>No account? <a href="{% url 'signup' %}">Create one</a>.</p>
 
   <p class="muted"><small>
     New here? <a href="{% url 'guide' %}">How it works</a>.

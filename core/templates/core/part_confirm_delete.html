@@ -7,8 +7,6 @@
 <p>You own {{ object.qty_owned }}, and active projects are holding
    {{ object.compute_held }}.</p>
 
-<p class="muted">A part named by any project, live or archived, can't be deleted
-   , because it's part of that project's record. Set its quantity to 0 instead.</p>
 
 <form method="post">
   {% csrf_token %}

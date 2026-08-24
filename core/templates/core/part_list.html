@@ -4,8 +4,7 @@
 {% block content %}
 <hgroup>
   <h1>Parts</h1>
-  <p>{{ total_parts }} in the bin. <strong>Available</strong> is what you own
-     minus what active projects are holding.</p>
+  <p>{{ total_parts }} in the bin.</p>
 </hgroup>
 
 <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
@@ -82,10 +81,8 @@
 {% else %}
   <article>
     <p>No parts yet.</p>
-    <p class="muted">Start with whatever is on top of the bin. You can add the
-       rest as you go. A half-entered inventory is more useful than none.</p>
     <a href="{% url 'part_create' %}" role="button">Add the first one</a>
-    <p class="muted"><small>Got a list already? <a href="{% url 'part_import' %}">Paste the whole lot in</a>.</small></p>
+    <a href="{% url 'part_import' %}" role="button" class="secondary">Import a list</a>
   </article>
 {% endif %}
 {% endblock %}

@@ -16,7 +16,6 @@
   project starts holding its parts again.
 </article>
 
-{% if lines %}
 <figure>
 <table>
   <thead>
@@ -35,20 +34,12 @@
       <td class="num muted">{{ line.qty_broken }}</td>
       <td class="num"><strong>{{ line.lost }}</strong></td>
     </tr>
+    {% empty %}
+    <tr><td colspan="4" class="muted">No quantities change.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
-{% else %}
-  <p class="muted">This teardown cost you nothing, so no quantities change.
-     The project simply goes back to holding its parts.</p>
-{% endif %}
-
-<p class="muted"><small>
-  Parts you handed back <em>during</em> the build stay handed back. Only what
-  this teardown did gets reversed. The reversal is recorded in each part's
-  history, so the undo is as visible as the teardown was.
-</small></p>
 
 <form method="post">
   {% csrf_token %}

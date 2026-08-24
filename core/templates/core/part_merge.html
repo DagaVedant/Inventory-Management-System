@@ -13,8 +13,7 @@
   <strong>{{ source.qty_owned }}</strong> owned,
   <strong>{{ line_count }}</strong> project line{{ line_count|pluralize }} and
   <strong>{{ history_count }}</strong> history line{{ history_count|pluralize }}
-  move across. Where both parts appear in the same project the two lines are
-  combined, because one project can't hold two lines for what is now one part.
+  move across.
 </article>
 
 {% if likely %}
@@ -22,16 +21,12 @@
     {% for part in likely %}<strong>{{ part }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.
   </p>
 {% else %}
-  <p class="muted">Nothing in your list looks like the same component, so check
-     carefully before merging.</p>
+  <p class="muted">No likely match.</p>
 {% endif %}
 
 <form method="post">
   {% csrf_token %}
-  {{ form.non_field_errors }}
-  <label for="{{ form.target.id_for_label }}">{{ form.target.label }}</label>
-  {{ form.target }}
-  {{ form.target.errors }}
+  {{ form.as_p }}
 
   <div style="display:flex; gap:.5rem; align-items:center; margin-top:.75rem;">
     <button type="submit" class="contrast">Merge and delete {{ source.name }}</button>
@@ -39,9 +34,7 @@
   </div>
 </form>
 
-<p class="muted"><small>This can't be undone. The quantities are preserved, so
-nothing is lost from your inventory, but the two parts become one and can't be
-separated again.</small></p>
+<p class="muted"><small>This can't be undone.</small></p>
 
 </div>
 {% endblock %}

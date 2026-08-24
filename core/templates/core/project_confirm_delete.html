@@ -11,9 +11,8 @@
       part{{ total_held|pluralize }}. Deleting it hands every one of them
       straight back to the shelf, with nothing marked soldered or broken.
     </article>
-    <p class="muted">If you actually built this and want the losses recorded,
-       <a href="{% url 'project_teardown' object.pk %}">tear it down instead</a>.
-       Delete is for projects that never really happened.</p>
+    <p class="muted">
+       <a href="{% url 'project_teardown' object.pk %}">Tear it down instead</a>.</p>
   {% else %}
     <p class="muted">Nothing allocated, so nothing changes in your inventory.</p>
   {% endif %}
@@ -25,8 +24,7 @@
     {{ summary.soldered|default:0 }} soldered in,
     {{ summary.broken|default:0 }} broken.
   </article>
-  <p class="muted">Your part quantities won't change. Those parts were already
-     written off when you tore it down; only the history goes.</p>
+  <p class="muted">Part quantities won't change.</p>
 {% endif %}
 
 {% if lines %}

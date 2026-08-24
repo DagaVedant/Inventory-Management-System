@@ -9,7 +9,6 @@
   <p>{{ tags|length }} in use.</p>
 </hgroup>
 
-{% if tags %}
 <figure>
 <table>
   <thead>
@@ -24,14 +23,15 @@
       <th scope="row"><a href="{% url 'part_list' %}?tag={{ tag|urlencode }}">{{ tag }}</a></th>
       <td class="num">{{ count }}</td>
     </tr>
+    {% empty %}
+    <tr><td colspan="2" class="muted">No tags yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
 
+{% if tags %}
 <h2>Rename or remove</h2>
-<p class="muted">A typo becomes its own tag and quietly splits a group in two.
-   This is where you put that right across every part at once.</p>
 
 <form method="post">
   {% csrf_token %}
@@ -47,16 +47,6 @@
   </div>
   <button type="submit">Apply</button>
 </form>
-<p class="muted"><small>Renaming onto a tag that already exists merges the two.
-Leaving the new name empty removes the tag from every part that has it.</small></p>
-
-{% else %}
-  <article>
-    <p><strong>No tags yet.</strong></p>
-    <p class="muted">Tags are free text on a part. They are how you group things
-       the columns can't: <code>i2c</code>, <code>3v3</code>,
-       <code>salvaged</code>.</p>
-  </article>
 {% endif %}
 
 <p><a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a></p>

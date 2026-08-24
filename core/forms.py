@@ -118,10 +118,6 @@ class BulkPartImportForm(forms.Form):
     top_up = forms.BooleanField(
         required=False,
         label="Add quantities to parts I already have",
-        help_text=(
-            "Without this, a line naming a part you already own is refused. "
-            "With it, the quantity is added as a delivery."
-        ),
     )
 
     def __init__(self, *args, user=None, **kwargs):
@@ -250,10 +246,7 @@ class PartForm(forms.ModelForm):
             "tags": forms.TextInput(attrs={"placeholder": "sensor, i2c, 3v3"}),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
-        help_texts = {
-            "value": "Free text. 10k, 4.7uF and 3V3 do not share a number type.",
-            "qty_owned": "Everything you have, including parts inside active projects.",
-        }
+        help_texts = {"value": "", "qty_owned": "", "tags": ""}
 
 
 class AllocationForm(forms.Form):

@@ -12,8 +12,6 @@
     <datalist id="known-tags">
       {% for tag in form.known_tags %}<option value="{{ tag }}"></option>{% endfor %}
     </datalist>
-    <p class="muted"><small>Tags you already use will autocomplete. Keeping them
-       consistent is what makes filtering by one worth anything.</small></p>
   {% endif %}
 
   <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
@@ -32,9 +30,4 @@
   </div>
 </form>
 
-{% if not object %}
-<p class="muted"><small><strong>Save and add another</strong> keeps you on this
-form with the cursor back in the name field. Use it when you are working
-through a pile.</small></p>
-{% endif %}
 {% endblock %}

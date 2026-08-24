@@ -34,7 +34,6 @@
 </div>
 
 <h2>Parts list</h2>
-{% if lines %}
 <figure>
 <table>
   <thead>
@@ -86,33 +85,19 @@
         {% endif %}
       </td>
     </tr>
+    {% empty %}
+    <tr><td colspan="9" class="muted">Nothing allocated yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
 
-<p class="muted"><small><strong>Return</strong> hands parts straight back to the
-shelf mid-build. <strong>Remove</strong> un-allocates a line you never actually
-pulled. Soldered and broken are decided at teardown.</small></p>
-{% else %}
-  <p class="muted">Nothing allocated yet.</p>
-{% endif %}
-
 {% if project.is_active %}
 <h2>Add a part</h2>
 <form method="post">
   {% csrf_token %}
-  {{ form.non_field_errors }}
-  <div class="grid">
-    <label>{{ form.part.label }}{{ form.part }}{{ form.part.errors }}</label>
-    <label>{{ form.qty_wanted.label }}{{ form.qty_wanted }}{{ form.qty_wanted.errors }}</label>
-    <label>{{ form.note.label }}{{ form.note }}</label>
-  </div>
+  {{ form.as_p }}
   <button type="submit">Allocate</button>
 </form>
-<p class="muted"><small>Allocating takes parts out of the available pool without
-changing what you own. If there aren't enough, it takes what's there and records
-the rest as short, and those show up on your shopping list. Adding a part that's
-already listed tops up its line.</small></p>
 {% endif %}
 {% endblock %}

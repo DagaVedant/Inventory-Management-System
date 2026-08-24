@@ -16,8 +16,7 @@
   <article>
     <strong>This looks like the same component as
     {% for twin in twins %}<a href="{% url 'part_detail' twin.pk %}">{{ twin }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</strong>
-    <p style="margin:.5rem 0 0"><small>Two rows for one component means your
-       counts are split across both.
+    <p style="margin:.5rem 0 0"><small>
        <a href="{% url 'part_merge' part.pk %}">Merge them</a>.</small></p>
   </article>
 {% endif %}
@@ -49,8 +48,6 @@
     {{ add_stock_form.qty }}
   </label>
   <button type="submit" style="width:auto">Add stock</button>
-  <span class="muted"><small>A delivery arrived. To fix a miscount instead,
-    <a href="{% url 'part_update' part.pk %}">edit the part</a>.</small></span>
 </form>
 
 <form method="post" action="{% url 'part_want' part.pk %}"
@@ -62,18 +59,9 @@
     {{ want_form.qty }}
   </label>
   <button type="submit" class="secondary" style="width:auto">Save</button>
-  <span class="muted"><small>
-    {% if part.qty_to_buy %}
-      On the shopping list. Set it to 0 to take it off.
-    {% else %}
-      Puts it on the shopping list without needing a project. A delivery takes
-      it back off.
-    {% endif %}
-  </small></span>
 </form>
 
 <h2>Held right now</h2>
-{% if holding %}
 <figure>
 <table>
   <thead>
@@ -92,13 +80,12 @@
       <td class="num">{{ line.qty_allocated }}</td>
       <td class="num"><strong>{{ line.remaining }}</strong></td>
     </tr>
+    {% empty %}
+    <tr><td colspan="3" class="muted">Nothing is holding any.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
-{% else %}
-  <p class="muted">Nothing on the bench is holding any.</p>
-{% endif %}
 
 <h2>What's happened to it</h2>
 {% if history %}
@@ -131,8 +118,7 @@
 </table>
 </figure>
 {% if total_lost %}
-  <p class="muted">Builds have permanently eaten <strong>{{ total_lost }}</strong>
-     of these, soldered in or dead.</p>
+  <p class="muted">Lost to builds: <strong>{{ total_lost }}</strong></p>
 {% endif %}
 {% else %}
   <p class="muted">No finished builds have used it yet.</p>
@@ -201,9 +187,6 @@
   </tbody>
 </table>
 </figure>
-<p class="muted"><small>Parts sharing a tag with this one, most available
-first. Whether any of them actually substitutes is your call, not the
-app's.</small></p>
 {% endif %}
 
 {% if part.notes %}
