@@ -21,13 +21,12 @@ an electronics parts inventory that tracks how many of each component you own, h
 - allocation used to refuse you if you were short. that meant a project could never *be* short, which meant the shopping list had nothing to build from. had to let it take what exists and record the rest
 - making teardown undoable needed a whole extra field, because returned parts come from two different places and mixing them makes it unreversible
 - fuzzy matching without being *too* fuzzy. `4.7k` and `47k` are different resistors so you can't just strip punctuation
-- tests found 4 bugs i thought were fine. 2 of them were failing silently
+- testing the arithmetic turned up 4 bugs i thought were fine. 2 were failing silently
 
 ## what im proud of
 
 - the ledger. every number on the site has a receipt, and there's a command that recounts and tells you if it's lying
 - teardown being reversible. it was a one way door and that was scary to use
-- 208 tests, mostly on the arithmetic
 - no javascript, anywhere
 
 ## how to test it

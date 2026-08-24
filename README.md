@@ -92,8 +92,8 @@ row.
 **nothing may move that number except one method.** `Part.adjust_stock()` takes
 a row lock, writes the change, and writes the history line in the same
 transaction. `check_stock` reconciles the two on demand, because a guarantee you
-can't verify is a hope. writing the tests for it found a real hole: creating a
-part directly skipped the ledger, which the views happened to cover.
+can't verify is a hope. testing that reconciliation found a real hole: creating
+a part directly skipped the ledger, which the views happened to cover.
 
 **allocation doesn't refuse you.** it used to, which meant a project could never
 actually be short, which meant there was nothing to build a shopping list out
@@ -107,8 +107,6 @@ teardown that fails validation changes nothing at all.
 some rules live in the database rather than the forms, so they hold even if a
 view is wrong later: one line per part per project, allocated can never exceed
 wanted, accounted can never exceed allocated.
-
-208 tests, mostly on the arithmetic.
 
 ## stack
 

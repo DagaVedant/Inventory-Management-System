@@ -25,9 +25,6 @@
 
   <p class="muted"><small>
     New here? <a href="{% url 'guide' %}">How it works</a>.
-    {% if email_configured %}
-      &middot; <a href="{% url 'password_reset' %}">Forgot your password?</a>
-    {% endif %}
   </small></p>
 </div>
 {% endblock %}

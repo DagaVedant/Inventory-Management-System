@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
@@ -84,21 +83,6 @@ class ThrottledLoginView(auth_views.LoginView):
     def form_valid(self, form):
         forget(self.request, self.BUCKET)
         return super().form_valid(form)
-
-
-class GuardedPasswordResetView(auth_views.PasswordResetView):
-    email_template_name = "registration/password_reset_email.txt"
-    subject_template_name = "registration/password_reset_subject.txt"
-    success_url = reverse_lazy("password_reset_done")
-
-    def dispatch(self, request, *args, **kwargs):
-        if not settings.EMAIL_CONFIGURED:
-            return render(
-                request,
-                "registration/password_reset_unavailable.html",
-                status=503,
-            )
-        return super().dispatch(request, *args, **kwargs)
 
 
 def healthz(request):
