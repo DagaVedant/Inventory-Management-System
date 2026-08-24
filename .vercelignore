@@ -1,0 +1,8 @@
+venv/
+staticfiles/
+db.sqlite3
+docs/
+.github/
+*.pyc
+__pycache__/
+.ruff_cache/

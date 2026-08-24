@@ -150,10 +150,15 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Serverless platforms run the app straight from the deployed source with no
+# build step and no writable disk, so there is never a collectstatic output to
+# serve from. Treat that like development: read through the finders instead.
+ON_SERVERLESS = os.environ.get("VERCEL") == "1"
+
 # In development there is no collectstatic output to serve from, so let
 # WhiteNoise fall back to the staticfiles finders instead of warning.
 WHITENOISE_AUTOREFRESH = DEBUG
-WHITENOISE_USE_FINDERS = DEBUG
+WHITENOISE_USE_FINDERS = DEBUG or ON_SERVERLESS
 
 STORAGES = {
     "default": {
@@ -166,7 +171,7 @@ STORAGES = {
         # for local development and tests, where no build step has run.
         "BACKEND": (
             "whitenoise.storage.CompressedStaticFilesStorage"
-            if DEBUG
+            if DEBUG or ON_SERVERLESS
             else "whitenoise.storage.CompressedManifestStaticFilesStorage"
         ),
     },
@@ -177,7 +182,7 @@ STORAGES = {
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 #
 # SMTP credentials come from the environment. Set EMAIL_HOST (plus user,
-# password and port) in Railway and real mail starts working with no code
+# password and port) in the environment and real mail starts working with no code
 # change. Until then everything goes to the console.
 #
 # EMAIL_CONFIGURED exists so the app can *hide* password reset rather than
