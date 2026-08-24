@@ -20,8 +20,9 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          # Matches the runtime Railway builds against.
-          python-version: "3.13"
+          # Matches the runtime Vercel builds against, pinned in
+          # .python-version so the two cannot drift apart.
+          python-version: "3.12"
           cache: pip
 
       - name: Install dependencies
@@ -49,6 +50,6 @@ jobs:
         # regress. EMAIL_HOST is set so the mail backend check passes here.
         env:
           DEBUG: "False"
-          RAILWAY_PUBLIC_DOMAIN: ci.example.com
+          SITE_DOMAIN: ci.example.com
           EMAIL_HOST: smtp.example.com
         run: python manage.py check --deploy

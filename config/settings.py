@@ -30,20 +30,18 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = []
 
-# The public hostname, however the host chooses to announce it. Most platforms
-# publish their own, so read those rather than making the deploy depend on
-# somebody remembering to set a variable by hand. SITE_DOMAIN is the manual
-# escape hatch and wins, comma separated if there is more than one.
+# The public hostname, however the host chooses to announce it. SITE_DOMAIN is
+# the one to set by hand, comma separated if there is more than one, and it is
+# what the stable production aliases come from.
 #
-# Vercel is listed twice on purpose: the production domain is stable, while
-# VERCEL_URL is unique per deployment and is the only way a preview build knows
-# what it is being called.
+# VERCEL_URL is read as well because it is unique per deployment and is the only
+# way a preview build knows what it is being called. Note that Vercel does not
+# actually supply VERCEL_PROJECT_PRODUCTION_URL to the running app, which is why
+# the production domains have to be listed in SITE_DOMAIN rather than inferred.
 SITE_DOMAINS = []
 
 for _source in (
     os.environ.get("SITE_DOMAIN"),
-    os.environ.get("RAILWAY_PUBLIC_DOMAIN"),
-    os.environ.get("VERCEL_PROJECT_PRODUCTION_URL"),
     os.environ.get("VERCEL_URL"),
 ):
     for _host in (_source or "").split(","):
@@ -263,7 +261,7 @@ if not DEBUG:
     # Both of these are deliberate, and both are what `check --deploy` will
     # nag about. Silenced below so a clean checklist run stays meaningful.
     #
-    # includeSubDomains: we're on a *.up.railway.app subdomain we don't own the
+    # includeSubDomains: we're on a *.vercel.app subdomain we don't own the
     # apex of. Asserting an HSTS policy for domains that aren't ours would be
     # wrong, and on a custom domain later it would need re-deciding anyway.
     #

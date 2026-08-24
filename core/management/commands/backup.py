@@ -1,4 +1,4 @@
-"""Take a copy of everything, because Railway holds the only one.
+"""Take a copy of everything, because the host holds the only one.
 
     python manage.py backup                 # writes backup-<timestamp>.json
     python manage.py backup --out mine.json
