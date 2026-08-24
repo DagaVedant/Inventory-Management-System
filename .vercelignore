@@ -13,3 +13,10 @@ __pycache__/
 # missing table. Keeping it out of the bundle lets the builder fall back to
 # requirements.txt, which is where the pinned dependencies actually live.
 pyproject.toml
+
+# Local tooling, never part of the deployment. The neon marketplace install
+# symlinks these at .agents/, which is ignored, leaving dangling links that the
+# bundler warns about on every build.
+.claude/
+.agents/
+skills-lock.json
