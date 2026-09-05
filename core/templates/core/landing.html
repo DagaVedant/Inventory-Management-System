@@ -5,7 +5,7 @@
 <div class="landing">
 
 <header class="landing-bar">
-  <span class="brand"><strong>Inventory System</strong></span>
+  <span class="brand">{% include "core/includes/logo.html" %}<strong>Inventory System</strong></span>
   <a href="{% url 'login' %}">Log in</a>
 </header>
 
@@ -101,7 +101,8 @@
     <a href="{% url 'signup' %}" role="button">Create an account</a>
     <a href="{% url 'login' %}" role="button" class="secondary">Log in</a>
   </div>
-  <p class="muted"><small>Open source. <a href="https://github.com/DagaVedant/Inventory-Management-System">Read the code on GitHub</a>.</small></p>
+  <p class="muted"><small>Open source. <a href="https://github.com/DagaVedant/Inventory-Management-System">Read the code on GitHub</a>.
+     Curious who else keeps a bin? <a href="{% url 'roster' %}">See the roster</a>.</small></p>
 </footer>
 
 </div>

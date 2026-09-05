@@ -382,3 +382,17 @@ a:not([role="button"]) { text-underline-offset: .15em; }
   .landing-hero { grid-template-columns: 1fr; gap: var(--space-5); }
   .landing-copy h1 { font-size: var(--text-2xl); }
 }
+
+/* Parts page filter bar */
+.filters { display: grid; grid-template-columns: minmax(12rem, 2fr) repeat(3, minmax(8rem, 1fr)) auto auto; gap: var(--space-2) var(--space-3); align-items: center; margin-bottom: var(--space-3); }
+.filters input, .filters select { margin: 0; }
+.filters select { font-size: var(--text-sm); }
+.filters label.check { display: flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-sm); white-space: nowrap; }
+.filters label.check input { margin: 0; }
+.filters button { width: auto; margin: 0; }
+.chips { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; margin-bottom: var(--space-4); font-size: var(--text-sm); }
+.chips a.tag { display: inline-flex; align-items: center; gap: .35rem; font-family: var(--pico-font-family-sans-serif); font-size: var(--text-xs); }
+.chips a.tag::after { content: "\00d7"; color: var(--pico-muted-color); }
+.chips a.tag:hover::after { color: var(--copper); }
+@media (max-width: 900px) { .filters { grid-template-columns: 1fr 1fr; } .filters input[type="search"] { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .filters { grid-template-columns: 1fr; } .filters button { width: 100%; } }

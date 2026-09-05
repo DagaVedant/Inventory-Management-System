@@ -1,7 +1,7 @@
 import csv
 
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -29,6 +29,7 @@ from .forms import (
     BulkPartImportForm,
     MergePartForm,
     PartForm,
+    ProfileForm,
     SignupForm,
     TagRenameForm,
     TeardownFormSet,
@@ -37,6 +38,7 @@ from .forms import (
 from .models import (
     MovementReason,
     Part,
+    Profile,
     Project,
     ProjectPart,
     ProjectStatus,
@@ -212,6 +214,84 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         )
 
 
+def bench_summary(user):
+    parts = Part.objects.filter(user=user)
+    tags = tag_counts(user)[:6]
+    return {
+        "user": user,
+        "part_count": parts.count(),
+        "unit_count": parts.aggregate(total=Sum("qty_owned"))["total"] or 0,
+        "live_builds": Project.objects.filter(
+            user=user, status=ProjectStatus.ACTIVE
+        ).count(),
+        "torn_down": Project.objects.filter(
+            user=user, status=ProjectStatus.ARCHIVED
+        ).count(),
+        "tags": tags,
+        "stacks": list(parts.order_by("-qty_owned", "name")[:5]),
+    }
+
+
+def roster_users():
+    return (
+        get_user_model()
+        .objects.filter(profile__on_roster=True)
+        .annotate(part_count=Count("parts", distinct=True))
+        .order_by("-part_count", "username")
+    )
+
+
+class RosterView(TemplateView):
+    template_name = "core/roster.html"
+
+    def get_context_data(self, **kwargs):
+        rows = []
+        for user in roster_users():
+            rows.append(bench_summary(user))
+        return super().get_context_data(rows=rows, **kwargs)
+
+
+class PublicBenchView(TemplateView):
+    template_name = "core/bench_public.html"
+
+    def get_context_data(self, **kwargs):
+        user = get_object_or_404(
+            get_user_model(),
+            username__iexact=self.kwargs["username"],
+            profile__on_roster=True,
+        )
+        return super().get_context_data(bench=bench_summary(user), **kwargs)
+
+
+class SettingsView(LoginRequiredMixin, FormView):
+    template_name = "core/settings.html"
+    form_class = ProfileForm
+    success_url = reverse_lazy("settings")
+
+    @cached_property
+    def profile(self):
+        profile, _ = Profile.objects.get_or_create(user=self.request.user)
+        return profile
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "instance": self.profile}
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(
+            profile=self.profile, bench=bench_summary(self.request.user), **kwargs
+        )
+
+    def form_valid(self, form):
+        form.save()
+        if self.profile.on_roster:
+            messages.success(
+                self.request, "Your bench is on the roster. Anyone can see it now."
+            )
+        else:
+            messages.success(self.request, "Your bench is private again.")
+        return super().form_valid(form)
+
+
 class OwnedMixin(LoginRequiredMixin):
     def get_queryset(self):
         return super().get_queryset().filter(user=self.request.user)
@@ -230,7 +310,19 @@ class PartListView(OwnedMixin, ListView):
         "owned": ("Owned", "qty_owned", True),
         "held": ("Held", "held", True),
         "available": ("Available", "available", True),
+        "tags": ("Tags", "tags", False),
     }
+
+    FILTERS = ("tag", "package", "value", "available")
+
+    def filters(self):
+        get = self.request.GET
+        return {
+            "tag": get.get("tag", "").strip(),
+            "package": get.get("package", "").strip(),
+            "value": get.get("value", "").strip(),
+            "available": get.get("available") == "1",
+        }
 
     def sort_key(self):
         raw = self.request.GET.get("sort", "name")
@@ -253,9 +345,15 @@ class PartListView(OwnedMixin, ListView):
                 | Q(notes__icontains=word)
             )
 
-        tag = self.request.GET.get("tag", "").strip()
-        if tag:
-            qs = qs.filter(tag_filter(tag))
+        active = self.filters()
+        if active["tag"]:
+            qs = qs.filter(tag_filter(active["tag"]))
+        if active["package"]:
+            qs = qs.filter(package__iexact=active["package"])
+        if active["value"]:
+            qs = qs.filter(value__iexact=active["value"])
+        if active["available"]:
+            qs = qs.filter(available__gt=0)
 
         key, descending = self.sort_key()
         field = self.SORTABLE[key][1]
@@ -285,12 +383,42 @@ class PartListView(OwnedMixin, ListView):
         page_params = self.request.GET.copy()
         page_params.pop("page", None)
 
+        active = self.filters()
+        chips = []
+        for name in self.FILTERS:
+            if not active[name]:
+                continue
+            without = self.request.GET.copy()
+            without.pop(name, None)
+            without.pop("page", None)
+            label = "Available only" if name == "available" else active[name]
+            chips.append(
+                {"name": name, "label": label, "url": f"?{without.urlencode()}"}
+            )
+
+        mine = Part.objects.filter(user=self.request.user)
         context["columns"] = columns
         context["page_params"] = page_params.urlencode()
         context["query"] = self.request.GET.get("q", "")
-        context["tag"] = self.request.GET.get("tag", "").strip()
-        context["total_parts"] = Part.objects.filter(user=self.request.user).count()
+        context["filters"] = active
+        context["chips"] = chips
+        context["filtering"] = bool(chips or context["query"])
+        context["tag"] = active["tag"]
+        context["tag_choices"] = [tag for tag, _ in tag_counts(self.request.user)]
+        context["package_choices"] = distinct(mine, "package")
+        context["value_choices"] = distinct(mine, "value")
+        context["total_parts"] = mine.count()
         return context
+
+
+def distinct(queryset, field):
+    seen, out = set(), []
+    for raw in queryset.exclude(**{field: ""}).values_list(field, flat=True):
+        key = raw.casefold()
+        if key not in seen:
+            seen.add(key)
+            out.append(raw)
+    return sorted(out, key=str.casefold)
 
 
 class TagChoicesMixin:

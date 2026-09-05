@@ -1,0 +1,20 @@
+{% extends "core/base.html" %}
+{% block title %}{{ bench.user.username }}'s bench{% endblock %}
+
+{% block content %}
+{% if not user.is_authenticated %}
+<header class="landing-bar">
+  <a href="{% url 'dashboard' %}" class="brand">{% include "core/includes/logo.html" %}<strong>Inventory System</strong></a>
+  <a href="{% url 'login' %}">Log in</a>
+</header>
+{% endif %}
+
+<div class="page-head">
+  <hgroup>
+    <h1>{{ bench.user.username }}'s bench</h1>
+    <p>On the <a href="{% url 'roster' %}">roster</a> by choice.</p>
+  </hgroup>
+</div>
+
+{% include "core/includes/bench_card.html" %}
+{% endblock %}

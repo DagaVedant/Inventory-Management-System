@@ -3,6 +3,9 @@ from django.conf import settings
 SECTIONS = {
     "dashboard": "bench",
     "guide": "guide",
+    "roster": "roster",
+    "bench_public": "roster",
+    "settings": "settings",
 }
 
 

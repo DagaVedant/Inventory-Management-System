@@ -4,7 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 from django.db.models import Case, IntegerField, Value, When
 
-from .models import Part, ProjectPart, match_key, normalise_tags
+from .models import Part, Profile, ProjectPart, match_key, normalise_tags
 
 
 class SignupForm(UserCreationForm):
@@ -387,3 +387,10 @@ class TeardownLineForm(forms.Form):
 
 
 TeardownFormSet = forms.formset_factory(TeardownLineForm, extra=0)
+
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model = Profile
+        fields = ["on_roster"]
+        labels = {"on_roster": "List my bench on the public roster"}

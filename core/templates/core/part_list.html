@@ -15,18 +15,44 @@
   </div>
 </div>
 
-<div class="toolbar">
-  <form method="get" role="search">
-    <input type="search" id="q" name="q" value="{{ query }}"
-           aria-label="Search parts" autocomplete="off" spellcheck="false"
-           placeholder="Search name, value, package, tags, notes…">
-    {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
-  </form>
-</div>
+<form method="get" role="search" class="filters" id="filters">
+  <input type="search" id="q" name="q" value="{{ query }}"
+         aria-label="Search parts" autocomplete="off" spellcheck="false"
+         placeholder="Search name, value, package, tags, notes…">
+  <select name="tag" aria-label="Tag">
+    <option value="">Any tag</option>
+    {% for choice in tag_choices %}
+      <option value="{{ choice }}"{% if choice|lower == filters.tag|lower %} selected{% endif %}>{{ choice }}</option>
+    {% endfor %}
+  </select>
+  <select name="package" aria-label="Package">
+    <option value="">Any package</option>
+    {% for choice in package_choices %}
+      <option value="{{ choice }}"{% if choice|lower == filters.package|lower %} selected{% endif %}>{{ choice }}</option>
+    {% endfor %}
+  </select>
+  <select name="value" aria-label="Value">
+    <option value="">Any value</option>
+    {% for choice in value_choices %}
+      <option value="{{ choice }}"{% if choice|lower == filters.value|lower %} selected{% endif %}>{{ choice }}</option>
+    {% endfor %}
+  </select>
+  <label class="check" for="available">
+    <input type="checkbox" id="available" name="available" value="1"{% if filters.available %} checked{% endif %}>
+    Available only
+  </label>
+  {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+  <button type="submit" class="secondary">Apply</button>
+</form>
 
-{% if tag %}
-  <p class="filter-note muted">Filtered to <span class="tag">{{ tag }}</span>
-     <a href="{% url 'part_list' %}{% if query %}?q={{ query|urlencode }}{% endif %}">clear</a></p>
+{% if chips %}
+  <p class="chips">
+    <span class="muted">Showing</span>
+    {% for chip in chips %}
+      <a class="tag" href="{{ chip.url }}" title="Remove this filter">{{ chip.label }}</a>
+    {% endfor %}
+    <a href="{% url 'part_list' %}{% if query %}?q={{ query|urlencode }}{% endif %}">Clear filters</a>
+  </p>
 {% endif %}
 
 {% if parts %}
@@ -40,7 +66,6 @@
           <a href="{{ column.url }}">{{ column.label }}{% if column.active %}<span aria-hidden="true">{% if column.descending %} ↓{% else %} ↑{% endif %}</span>{% endif %}</a>
         </th>
       {% endfor %}
-      <th scope="col">Tags</th>
       <th scope="col"></th>
     </tr>
   </thead>
@@ -82,10 +107,10 @@
 </nav>
 {% endif %}
 
-{% elif query or tag %}
+{% elif filtering %}
   <div class="empty">
-    <p>Nothing matches{% if query %} "{{ query }}"{% endif %}{% if tag %} in <span class="tag">{{ tag }}</span>{% endif %}.
-       Try fewer words, or <a href="{% url 'part_list' %}">clear the search</a>.</p>
+    <p>Nothing matches{% if query %} "{{ query }}"{% endif %} with these filters.
+       Try fewer words, or <a href="{% url 'part_list' %}">clear everything</a>.</p>
   </div>
 {% else %}
   <div class="empty">
@@ -96,4 +121,23 @@
     </div>
   </div>
 {% endif %}
+
+<script>
+  (function () {
+    var form = document.getElementById("filters");
+    if (!form) return;
+    form.querySelectorAll("select, input[type=checkbox]").forEach(function (el) {
+      el.addEventListener("change", function () { form.requestSubmit(); });
+    });
+    document.addEventListener("keydown", function (event) {
+      var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+      if (event.key === "/" && !typing) {
+        event.preventDefault();
+        document.getElementById("q").focus();
+      } else if (event.key === "n" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        window.location.href = "{% url 'part_create' %}";
+      }
+    });
+  })();
+</script>
 {% endblock %}

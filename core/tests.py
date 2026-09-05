@@ -12,6 +12,7 @@ from .forms import parse_parts_text
 from .models import (
     MovementReason,
     Part,
+    Profile,
     Project,
     ProjectPart,
     ProjectStatus,
@@ -2063,3 +2064,138 @@ class ShoppingListExportTests(BaseCase):
         Part.objects.filter(pk=theirs.pk).update(qty_to_buy=9)
         response = self.client.get(reverse("shopping_list_csv"))
         self.assertNotContains(response, "Their part")
+
+
+class FilterTests(BaseCase):
+    url = reverse_lazy("part_list")
+
+    def setUp(self):
+        super().setUp()
+        self.r1 = self.part(
+            "Resistor", qty=10, value="10k", package="0805", tags="passive"
+        )
+        self.r2 = self.part(
+            "Resistor", qty=0, value="10k", package="through-hole", tags="passive"
+        )
+        self.c1 = self.part(
+            "Capacitor", qty=5, value="100nF", package="0805", tags="passive, cap"
+        )
+        self.m1 = self.part("ESP32", qty=2, package="module", tags="mcu")
+
+    def names(self, **params):
+        response = self.client.get(self.url, params)
+        return [(p.name, p.package) for p in response.context["parts"]], response
+
+    def test_package_and_value_filters_narrow_the_list(self):
+        rows, _ = self.names(package="0805")
+        self.assertEqual(rows, [("Capacitor", "0805"), ("Resistor", "0805")])
+        rows, _ = self.names(value="10k")
+        self.assertEqual(rows, [("Resistor", "0805"), ("Resistor", "through-hole")])
+
+    def test_filters_compose_with_each_other_and_with_search(self):
+        rows, _ = self.names(package="0805", value="10k")
+        self.assertEqual(rows, [("Resistor", "0805")])
+        rows, _ = self.names(tag="passive", package="0805", q="cap")
+        self.assertEqual(rows, [("Capacitor", "0805")])
+
+    def test_available_only_hides_parts_you_have_none_of(self):
+        rows, _ = self.names(value="10k", available="1")
+        self.assertEqual(rows, [("Resistor", "0805")])
+
+    def test_filters_are_case_insensitive(self):
+        rows, _ = self.names(package="THROUGH-HOLE")
+        self.assertEqual(rows, [("Resistor", "through-hole")])
+
+    def test_dropdowns_list_only_your_own_distinct_values(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        Part.objects.create(user=stranger, name="Theirs", qty_owned=1, package="SOT-23")
+        _, response = self.names()
+        self.assertEqual(
+            response.context["package_choices"], ["0805", "module", "through-hole"]
+        )
+        self.assertEqual(response.context["value_choices"], ["100nF", "10k"])
+        self.assertEqual(response.context["tag_choices"], ["passive", "cap", "mcu"])
+
+    def test_active_filters_show_as_chips_that_remove_themselves(self):
+        _, response = self.names(package="0805", value="10k", available="1")
+        chips = {chip["name"]: chip for chip in response.context["chips"]}
+        self.assertEqual(set(chips), {"package", "value", "available"})
+        self.assertEqual(chips["available"]["label"], "Available only")
+        self.assertNotIn("package=", chips["package"]["url"])
+        self.assertIn("value=10k", chips["package"]["url"])
+        self.assertContains(response, chips["package"]["url"].replace("&", "&amp;"))
+
+    def test_sorting_by_tags_is_allowed(self):
+        _, response = self.names(sort="-tags")
+        self.assertEqual(response.context["parts"][0].name, "Capacitor")
+        self.assertContains(response, 'aria-sort="descending"')
+
+
+class RosterTests(BaseCase):
+    def opt_in(self, user=None):
+        Profile.objects.update_or_create(
+            user=user or self.user, defaults={"on_roster": True}
+        )
+
+    def test_everyone_is_private_until_they_opt_in(self):
+        self.part("Resistor", qty=180, value="10k")
+        anon = Client()
+        self.assertNotContains(
+            anon.get(reverse("roster")), reverse("bench_public", args=["owner"])
+        )
+        self.assertEqual(
+            anon.get(reverse("bench_public", args=["owner"])).status_code, 404
+        )
+
+    def test_opting_in_puts_the_bench_on_the_roster_for_visitors(self):
+        self.part("Resistor", qty=180, value="10k", tags="passive")
+        self.part("Capacitor", qty=40, value="100nF", tags="passive")
+        self.opt_in()
+
+        anon = Client()
+        roster = anon.get(reverse("roster"))
+        self.assertContains(roster, "owner")
+        self.assertContains(roster, reverse("bench_public", args=["owner"]))
+
+        page = anon.get(reverse("bench_public", args=["owner"]))
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "Resistor")
+        self.assertContains(page, "180")
+        self.assertContains(page, "passive")
+
+    def test_the_public_page_never_shows_notes_packages_or_project_names(self):
+        self.part(
+            "Resistor", qty=180, package="0805-secret", notes="bought at midnight"
+        )
+        self.project("Top secret build")
+        self.opt_in()
+        page = Client().get(reverse("bench_public", args=["owner"]))
+        self.assertNotContains(page, "0805-secret")
+        self.assertNotContains(page, "midnight")
+        self.assertNotContains(page, "Top secret build")
+
+    def test_settings_page_toggles_it_and_reports_what_happened(self):
+        response = self.client.post(
+            reverse("settings"), {"on_roster": "on"}, follow=True
+        )
+        self.assertTrue(Profile.objects.get(user=self.user).on_roster)
+        self.assertContains(response, "on the roster")
+
+        response = self.client.post(reverse("settings"), {}, follow=True)
+        self.assertFalse(Profile.objects.get(user=self.user).on_roster)
+        self.assertContains(response, "private again")
+
+    def test_roster_is_sorted_by_distinct_parts(self):
+        big = User.objects.create_user("big", "b@e.com", "pw12345!")
+        for name in ["A", "B", "C"]:
+            Part.objects.create(user=big, name=name, qty_owned=1)
+        self.part("Only one", qty=999)
+        self.opt_in()
+        self.opt_in(big)
+        rows = Client().get(reverse("roster")).context["rows"]
+        self.assertEqual([row["user"].username for row in rows], ["big", "owner"])
+
+    def test_settings_need_login(self):
+        response = Client().get(reverse("settings"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])

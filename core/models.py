@@ -44,6 +44,27 @@ def match_key(name, value=""):
     return clean(name), clean(value)
 
 
+class Profile(models.Model):
+    """Per-user settings. Only exists once the user has opened settings."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="profile",
+    )
+    on_roster = models.BooleanField(
+        default=False,
+        help_text=(
+            "Show this bench on the public roster: username, how many parts "
+            "and units, the busiest tags and the five biggest stacks."
+        ),
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} ({'public' if self.on_roster else 'private'})"
+
+
 class ProjectStatus(models.TextChoices):
     ACTIVE = "active", "Active"
     ARCHIVED = "archived", "Archived"
