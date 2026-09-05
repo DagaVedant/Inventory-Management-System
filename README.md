@@ -9,13 +9,7 @@ how many are allocated to projects, and how many are actually available.
 
 **[inventory-system-manager.vercel.app](https://inventory-system-manager.vercel.app)**
 
-sign up with any username and password, it asks for nothing else. or log into
-the demo, already loaded with 38 parts and 4 projects:
-
-```
-username: demo
-password: stardancedemo
-```
+sign up with any username and password, it asks for nothing else.
 
 ## the idea
 

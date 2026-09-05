@@ -1,0 +1,108 @@
+{% extends "core/base.html" %}
+{% block title %}Parts inventory for a hobby bench{% endblock %}
+
+{% block content %}
+<div class="landing">
+
+<header class="landing-bar">
+  <span class="brand"><strong>Inventory System</strong></span>
+  <a href="{% url 'login' %}">Log in</a>
+</header>
+
+<section class="landing-hero">
+  <div class="landing-copy">
+    <h1>Know what is on the shelf and what is inside a build.</h1>
+    <p class="lede">An electronics parts inventory built for a bench, not a
+       warehouse. Parts do not get used up here. A project <strong>holds</strong>
+       them, and when you tear it down most of them come back.</p>
+    <div class="page-actions">
+      <a href="{% url 'signup' %}" role="button">Create an account</a>
+      <a href="{% url 'guide' %}" role="button" class="secondary outline">How it works</a>
+    </div>
+    <p class="muted"><small>A username and a password. It asks for nothing else.</small></p>
+  </div>
+
+  <figure class="landing-sample" aria-label="Example of the bench view">
+    <figcaption class="muted">The bench, as it looks with two builds live</figcaption>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Project</th>
+          <th scope="col" class="num">Held</th>
+          <th scope="col" class="num">Short</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">Weather station</th>
+          <td class="num">16</td>
+          <td class="num zero">10</td>
+        </tr>
+        <tr>
+          <th scope="row">Garage parking sensor</th>
+          <td class="num">13</td>
+          <td class="num zero">2</td>
+        </tr>
+      </tbody>
+    </table>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Shopping list</th>
+          <th scope="col" class="num">For builds</th>
+          <th scope="col" class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">Screw terminal <span class="muted val">2-way</span></th>
+          <td class="num">6</td>
+          <td class="num zero">6</td>
+        </tr>
+        <tr>
+          <th scope="row">DS18B20 temperature</th>
+          <td class="num">4</td>
+          <td class="num zero">4</td>
+        </tr>
+        <tr>
+          <th scope="row">SSD1306 OLED <span class="muted val">128x64</span></th>
+          <td class="num">2</td>
+          <td class="num zero">2</td>
+        </tr>
+      </tbody>
+    </table>
+  </figure>
+</section>
+
+<section class="landing-numbers">
+  <h2>Three numbers per part</h2>
+  <dl class="numbers">
+    <div><dt>Owned</dt><dd>Everything you have, loose or inside a live build.</dd></div>
+    <div><dt>Held</dt><dd>Sitting inside a project right now.</dd></div>
+    <div><dt>Available</dt><dd>Owned minus held. The one you check before you start.</dd></div>
+  </dl>
+</section>
+
+<section class="landing-features">
+  <h2>What it does</h2>
+  <dl class="features">
+    <div><dt>Teardown</dt><dd>Say what became of every part: returned, soldered in, or broken. Only the last two leave your inventory.</dd></div>
+    <div><dt>Reopen</dt><dd>A teardown is reversible in two clicks.</dd></div>
+    <div><dt>Shopping list</dt><dd>What live builds could not get, plus anything you flagged, totalled per part. Download it as CSV or plain text.</dd></div>
+    <div><dt>History</dt><dd>Every quantity change logged with the balance it produced.</dd></div>
+    <div><dt>Duplicates</dt><dd><span class="val">10k</span> and <span class="val">10k&#937;</span> are one resistor. It spots them and merges them. <span class="val">4.7k</span> and <span class="val">47k</span> it leaves alone.</dd></div>
+    <div><dt>Paste import</dt><dd>A whole bin at once, one part per line.</dd></div>
+    <div><dt>Tags</dt><dd>Filter by one, autocomplete so typos do not split a group, rename across every part.</dd></div>
+  </dl>
+</section>
+
+<footer class="landing-foot">
+  <div class="page-actions">
+    <a href="{% url 'signup' %}" role="button">Create an account</a>
+    <a href="{% url 'login' %}" role="button" class="secondary">Log in</a>
+  </div>
+  <p class="muted"><small>Open source. <a href="https://github.com/DagaVedant/Inventory-Management-System">Read the code on GitHub</a>.</small></p>
+</footer>
+
+</div>
+{% endblock %}

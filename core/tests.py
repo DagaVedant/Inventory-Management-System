@@ -1772,10 +1772,24 @@ class SortingTests(BaseCase):
 class DashboardTests(BaseCase):
     url = reverse_lazy("dashboard")
 
-    def test_requires_login(self):
+    def test_visitors_get_the_front_page_instead_of_a_redirect(self):
         response = Client().get(self.url)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/login/", response["Location"])
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("signup"))
+        self.assertContains(response, reverse("login"))
+        self.assertContains(response, reverse("guide"))
+        self.assertNotContains(response, "Running low")
+
+    def test_the_front_page_shows_no_one_elses_data(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        Part.objects.create(user=stranger, name="Their secret part", qty_owned=5)
+        response = Client().get(self.url)
+        self.assertNotContains(response, "Their secret part")
+
+    def test_members_get_the_bench(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, "Shopping list")
+        self.assertNotContains(response, reverse("signup"))
 
     def test_empty_account_points_at_the_importer(self):
         response = self.client.get(self.url)

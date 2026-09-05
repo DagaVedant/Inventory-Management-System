@@ -177,6 +177,11 @@ def shopping_list_txt(request):
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "core/dashboard.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return render(request, "core/landing.html")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         user = self.request.user
 

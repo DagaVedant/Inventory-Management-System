@@ -347,3 +347,38 @@ td > input[type="number"] { width: 5.5rem; margin: 0; }
 tbody a:not([role="button"]) { color: var(--pico-color); text-decoration-color: rgba(215, 218, 223, .3); text-underline-offset: .15em; }
 tbody a:not([role="button"]):hover { color: var(--copper); text-decoration-color: currentColor; }
 a:not([role="button"]) { text-underline-offset: .15em; }
+
+/* Front page for visitors. Same tokens as the app; the sample bench table
+   is the hero because it is the thing the product is. */
+.landing { padding-bottom: var(--space-7); }
+.landing-bar { display: flex; align-items: center; justify-content: space-between;
+               padding-block: var(--space-3); margin-bottom: var(--space-7);
+               border-bottom: 1px solid var(--pico-muted-border-color); }
+.landing-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+                gap: var(--space-7); align-items: start; margin-bottom: var(--space-7); }
+.landing-copy h1 { font-size: 2.25rem; line-height: 1.15; margin-bottom: var(--space-4); }
+.landing-copy .lede { font-size: var(--text-lg); margin-bottom: var(--space-5); }
+.landing-copy .page-actions { margin-bottom: var(--space-3); }
+.landing-sample { margin: 0; padding: var(--space-4) var(--space-5);
+                  background: var(--pico-card-background-color);
+                  border: 1px solid var(--pico-muted-border-color);
+                  border-radius: var(--pico-border-radius); }
+.landing-sample figcaption { font-size: var(--text-xs); margin-bottom: var(--space-3); }
+.landing-sample table { width: 100%; }
+.landing-sample table + table { margin-top: var(--space-5); }
+.landing-sample tbody tr:hover { background: none; }
+.landing h2 { margin-top: 0; }
+.landing section { margin-bottom: var(--space-7); }
+.numbers, .features { display: grid; gap: var(--space-4) var(--space-6); margin: 0; }
+.numbers { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.features { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+.numbers dt, .features dt { font-weight: 600; margin-bottom: var(--space-1); }
+.numbers dt { font-family: var(--pico-font-family-monospace); font-weight: 500;
+              color: var(--copper); }
+.numbers dd, .features dd { margin: 0; color: var(--pico-muted-color); font-size: var(--text-sm); }
+.landing-foot { padding-top: var(--space-5); border-top: 1px solid var(--pico-muted-border-color); }
+.landing-foot .page-actions { margin-bottom: var(--space-3); }
+@media (max-width: 900px) {
+  .landing-hero { grid-template-columns: 1fr; gap: var(--space-5); }
+  .landing-copy h1 { font-size: var(--text-2xl); }
+}
