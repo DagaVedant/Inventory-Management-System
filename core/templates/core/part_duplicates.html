@@ -28,9 +28,9 @@
     <tr>
       <th scope="row">
         <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
-        {% if part.value %}<span class="muted">{{ part.value }}</span>{% endif %}
+        {% if part.value %}<span class="muted val">{{ part.value }}</span>{% endif %}
       </th>
-      <td class="muted">{{ part.package|default:"" }}</td>
+      <td class="muted val">{{ part.package|default:"" }}</td>
       <td class="num">{{ part.qty_owned }}</td>
       <td class="num muted">{{ part.held }}</td>
       <td class="num"><strong>{{ part.available }}</strong></td>

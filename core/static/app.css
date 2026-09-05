@@ -1,3 +1,76 @@
+/* Theme. Dark, but a bench mat rather than a framework navy: neutral
+   charcoal, one copper accent for links and primary actions, and a mono
+   face for every value, quantity and package, the way they are printed
+   on a reel label. Overrides Pico's dark palette; the selector is
+   specific enough to beat Pico's prefers-color-scheme rules. */
+:root[data-theme="dark"] {
+  --mat: #15171a;
+  --tray: #1d2024;
+  --seam: #2c3036;
+  --tin: #d7dadf;
+  --solder: #8d949e;
+  --copper: #e39c5a;
+  --copper-bright: #f0ad6d;
+  --copper-dim: #b8783f;
+
+  --pico-font-family-sans-serif: "IBM Plex Sans", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, var(--pico-font-family-emoji);
+  --pico-font-family-monospace: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --pico-font-family: var(--pico-font-family-sans-serif);
+
+  --pico-background-color: var(--mat);
+  --pico-color: var(--tin);
+  --pico-muted-color: var(--solder);
+  --pico-muted-border-color: var(--seam);
+  --pico-border-color: var(--seam);
+  --pico-card-background-color: var(--tray);
+  --pico-card-border-color: var(--tray);
+  --pico-card-sectioning-background-color: #22262b;
+  --pico-code-background-color: var(--tray);
+  --pico-code-color: var(--tin);
+  --pico-table-border-color: var(--seam);
+  --pico-table-row-stripped-background-color: rgba(215, 218, 223, .035);
+  --pico-text-selection-color: rgba(227, 156, 90, .3);
+
+  --pico-primary: var(--copper);
+  --pico-primary-background: var(--copper);
+  --pico-primary-border: var(--copper);
+  --pico-primary-underline: rgba(227, 156, 90, .45);
+  --pico-primary-hover: var(--copper-bright);
+  --pico-primary-hover-background: var(--copper-bright);
+  --pico-primary-hover-border: var(--copper-bright);
+  --pico-primary-hover-underline: var(--copper-bright);
+  --pico-primary-focus: rgba(227, 156, 90, .4);
+  --pico-primary-inverse: #15171a;
+
+  --pico-secondary: #b3b9c2;
+  --pico-secondary-background: #343940;
+  --pico-secondary-border: #3d434b;
+  --pico-secondary-underline: rgba(179, 185, 194, .5);
+  --pico-secondary-hover: #d0d5dc;
+  --pico-secondary-hover-background: #3f454d;
+  --pico-secondary-hover-border: #4a515a;
+  --pico-secondary-hover-underline: var(--pico-secondary-hover);
+  --pico-secondary-focus: rgba(179, 185, 194, .25);
+  --pico-secondary-inverse: #eef0f2;
+
+  --pico-form-element-background-color: var(--tray);
+  --pico-form-element-border-color: #363b42;
+  --pico-form-element-color: var(--tin);
+  --pico-form-element-placeholder-color: #7a818b;
+  --pico-form-element-active-background-color: #202429;
+  --pico-form-element-active-border-color: var(--copper);
+  --pico-form-element-focus-color: var(--copper);
+  --pico-form-element-selected-background-color: #2a2f36;
+  --pico-form-element-invalid-border-color: #a8544f;
+  --pico-form-element-invalid-active-border-color: #d98079;
+  --pico-form-element-invalid-focus-color: rgba(217, 128, 121, .35);
+
+  --pico-del-color: #d98079;
+  --pico-ins-color: #6fb98f;
+  --pico-mark-background-color: #5a3d1e;
+  --pico-mark-color: var(--tin);
+}
+
 /* Tokens. Everything below is built from these; Pico's own variables are
    pointed at them so the framework and the app agree on one scale. */
 :root {
@@ -23,8 +96,8 @@
   --danger-solid: #a63d38;
   --danger-solid-hover: #8a2f2b;
   --ok: var(--pico-ins-color);
-  --warn: #d9a441;
-  --chip-bg: rgba(123, 132, 149, .16);
+  --warn: #e0bd4c;
+  --chip-bg: rgba(215, 218, 223, .1);
 
   --pico-font-size: 100%;
   --pico-line-height: 1.5;
@@ -37,6 +110,8 @@
 }
 
 html { color-scheme: dark; font-size: 100%; }
+body { font-feature-settings: "tnum" 0; }
+.num, .stats strong { font-feature-settings: "tnum" 1; }
 body { min-height: 100dvh; }
 
 /* Page frame */
@@ -66,7 +141,7 @@ body > .container > main { padding-block: 0 var(--space-7); }
 
 /* Headings */
 h1, h2, h3 { text-wrap: balance; }
-h1 { font-size: var(--text-2xl); font-weight: 650; letter-spacing: -.01em;
+h1 { font-size: var(--text-2xl); font-weight: 600; letter-spacing: -.015em;
      margin-bottom: var(--space-1); }
 h2 { font-size: var(--text-lg); font-weight: 600; margin: var(--space-7) 0 var(--space-3); }
 hgroup { margin-bottom: 0; }
@@ -99,6 +174,9 @@ tbody th[scope="row"] { font-weight: 500; }
 tbody tr { transition: background-color .15s ease; }
 tbody tr:hover { background-color: var(--pico-table-row-stripped-background-color); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tbody td.num, .val, .stats strong, .tag, code, kbd { font-family: var(--pico-font-family-monospace); }
+tbody td.num { font-size: var(--text-sm); }
+.val { font-size: .92em; letter-spacing: .01em; }
 thead th a { color: inherit; text-decoration: none; }
 thead th a:hover { color: var(--pico-color); }
 thead th[aria-sort="ascending"] a, thead th[aria-sort="descending"] a { color: var(--pico-color); }
@@ -116,16 +194,16 @@ td.cell-note { font-size: var(--text-xs); color: var(--pico-muted-color); }
 /* Text helpers */
 .muted { color: var(--pico-muted-color); }
 .zero { color: var(--danger); font-weight: 700; }
-.tag { display: inline-block; font-size: var(--text-xs); line-height: 1.5;
+.tag { display: inline-block; font-size: .7rem; line-height: 1.6;
        padding: .1rem .55rem; border-radius: 1rem; margin: 0 .3rem .2rem 0;
        background: var(--chip-bg); color: var(--pico-color); text-decoration: none; }
-a.tag:hover { background: rgba(123, 132, 149, .3); }
+a.tag:hover { background: rgba(215, 218, 223, .2); }
 
 /* Stat strip */
 .stats { display: flex; gap: var(--space-7); flex-wrap: wrap;
          margin: var(--space-4) 0 var(--space-5); }
 .stats > div { min-width: 6rem; }
-.stats strong { display: block; font-size: var(--text-2xl); font-weight: 650;
+.stats strong { display: block; font-size: var(--text-2xl); font-weight: 500;
                 line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stats span { font-size: var(--text-sm); color: var(--pico-muted-color); }
 
@@ -264,3 +342,8 @@ td > input[type="number"] { width: 5.5rem; margin: 0; }
 @media (max-width: 640px) {
   .page-head { display: grid; grid-template-columns: 1fr; gap: var(--space-3); }
 }
+
+/* Links inside tables read as text; copper is for actions and prose. */
+tbody a:not([role="button"]) { color: var(--pico-color); text-decoration-color: rgba(215, 218, 223, .3); text-underline-offset: .15em; }
+tbody a:not([role="button"]):hover { color: var(--copper); text-decoration-color: currentColor; }
+a:not([role="button"]) { text-underline-offset: .15em; }

@@ -6,9 +6,9 @@
   <hgroup>
     <h1>{{ part.name }}</h1>
     <p>
-      {% if part.value %}{{ part.value }}{% endif %}
-      {% if part.package %}· {{ part.package }}{% endif %}
-      {% if part.voltage %}· {{ part.voltage }}{% endif %}
+      {% if part.value %}<span class="val">{{ part.value }}</span>{% endif %}
+      {% if part.package %}· <span class="val">{{ part.package }}</span>{% endif %}
+      {% if part.voltage %}· <span class="val">{{ part.voltage }}</span>{% endif %}
       {% if part.pin_count %}· {{ part.pin_count }} pins{% endif %}
       {% if part.tag_list %}
         <br>{% for t in part.tag_list %}<a class="tag" href="{% url 'part_list' %}?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}

@@ -49,10 +49,10 @@
     <tr>
       <th scope="row">
         <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
-        {% if part.value or part.package %}<small class="muted sm-only">{{ part.value }}{% if part.value and part.package %} · {% endif %}{{ part.package }}</small>{% endif %}
+        {% if part.value or part.package %}<small class="muted sm-only val">{{ part.value }}{% if part.value and part.package %} · {% endif %}{{ part.package }}</small>{% endif %}
       </th>
-      <td class="sm-hide">{{ part.value|default:"" }}</td>
-      <td class="muted sm-hide">{{ part.package|default:"" }}</td>
+      <td class="sm-hide val">{{ part.value|default:"" }}</td>
+      <td class="muted sm-hide val">{{ part.package|default:"" }}</td>
       <td class="num sm-hide">{{ part.qty_owned }}</td>
       <td class="num {% if not part.held %}muted{% endif %}" data-label="Held">{{ part.held }}</td>
       <td class="num {% if part.available == 0 %}zero{% endif %}" data-label="Available">
