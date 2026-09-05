@@ -32,13 +32,16 @@ available  owned minus held
   only the last two leave your inventory
 - **reopen**: teardown is reversible, in two clicks
 - **shopping list**: what live builds couldn't get, plus anything you flagged,
-  totalled per part
+  totalled per part. download it as csv or plain text
 - **history**: every quantity change logged with the balance it produced
 - **duplicates**: `10k` and `10kΩ` are one resistor. it spots them and merges
   them. `4.7k` and `47k` it leaves alone
 - **paste import**: a whole bin at once, one part per line
 - **tags**: filter by one, autocomplete so typos don't split a group, rename
   across every part
+- **filters**: narrow the bin by tag, package and value without typing
+- **roster**: off by default. tick a box in settings and your bench shows up
+  on a public list with its counts and biggest stacks, nothing else
 
 ## running it locally
 
