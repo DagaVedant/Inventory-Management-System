@@ -5,50 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Parts{% endblock %} · Inventory System</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-  <style>
-
-    html { font-size: 100%; }
-    .container { max-width: 1400px; }
-
-    :root {
-      --pico-form-element-spacing-vertical: .4rem;
-      --pico-typography-spacing-vertical: .75rem;
-      --pico-block-spacing-vertical: .75rem;
-    }
-    h1 { font-size: 1.55rem; margin-bottom: .2rem; }
-    h2 { font-size: 1.1rem; margin: 1.6rem 0 .5rem; }
-    hgroup { margin-bottom: 1rem; }
-    hgroup > p { font-size: .9rem; }
-    article { padding: .7rem .9rem; }
-    figure { margin-bottom: 1rem; }
-    body > main { padding-block: 1rem; }
-    .topbar { display:flex; gap:1rem; align-items:baseline; flex-wrap:wrap;
-              border-bottom:1px solid var(--pico-muted-border-color);
-              padding-block:.75rem; margin-bottom:1.5rem; }
-    .topbar .spacer { margin-left:auto; }
-    .topbar a { text-decoration:none; }
-    .brand { display:inline-flex; align-items:center; gap:.45rem;
-
-             cursor:default; user-select:none; }
-
-    .logo { width:1.55rem; height:1.55rem; flex:none; }
-    table { font-size:.85rem; margin-bottom:0; }
-    table th, table td { padding:.35rem .5rem; }
-    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-    .muted { color:var(--pico-muted-color); }
-    .tag { display:inline-block; font-size:.72rem; padding:.1rem .45rem;
-           border:1px solid var(--pico-muted-border-color); border-radius:1rem;
-           margin-right:.25rem; color:var(--pico-muted-color); }
-    .flash { margin-bottom:1rem; }
-    .inline-form { display:inline; }
-    .inline-form input[type=number] { width:4.5rem; display:inline-block;
-                                      margin:0 .25rem 0 0; }
-    .btn-sm { padding:.2rem .5rem; font-size:.75rem; margin:0; width:auto;
-              display:inline-block; }
-    .zero { color:var(--pico-del-color); font-weight:700; }
-  </style>
+  <link rel="stylesheet" href="{% static 'pico.min.css' %}">
+  <link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
 <body>
 <div class="container">
