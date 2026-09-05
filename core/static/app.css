@@ -189,3 +189,78 @@ button, [role="button"], a { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }
+
+/* Small screens. Desktop rules above are the base; below 640px the page
+   becomes a single column, tables turn into stacked rows, and anything
+   tappable gets a finger-sized target. */
+.sm-only { display: none; }
+@media (max-width: 640px) {
+  .container { padding-inline: var(--space-4); }
+  h1 { font-size: var(--text-xl); }
+  h2 { margin-top: var(--space-6); }
+  .section-head { margin-top: var(--space-6); }
+  .section-head .aside { margin-left: 0; flex-basis: 100%; }
+  .sm-only { display: block; }
+
+  .topbar { gap: var(--space-2) var(--space-4); padding-block: var(--space-2) 0;
+            margin-bottom: var(--space-5); }
+  .topbar .who { margin-left: auto; }
+  .topbar .links { flex-basis: 100%; order: 3; justify-content: space-between;
+                   gap: 0; border-top: 1px solid var(--pico-muted-border-color); }
+  .topbar .links a { flex: 1; display: flex; justify-content: center; align-items: center;
+                     min-height: 2.75rem; padding: 0; border-bottom-width: 2px; }
+
+  .page-head { flex-direction: column; align-items: stretch; gap: var(--space-3); }
+  .page-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); }
+  .page-actions [role="button"], .page-actions button { width: 100%; text-align: center; }
+  .form-actions { flex-direction: column; align-items: stretch; }
+  .form-actions button, .form-actions [role="button"] { width: 100%; }
+  .form-actions .muted { text-align: center; padding: var(--space-2); }
+  .stock-forms { flex-direction: column; gap: var(--space-4); }
+  .inline-fields { flex-direction: column; align-items: stretch; }
+  .inline-fields input { width: 100%; }
+  .inline-fields button { width: 100%; }
+  .stats { gap: var(--space-5); }
+  .btn-sm { min-height: 2.5rem; padding: .5rem .8rem; }
+  .tag { padding: .3rem .7rem; }
+  .auth { margin-top: var(--space-5); }
+
+  figure { overflow-x: auto; }
+  .fit > table { min-width: 100%; }
+
+  .cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden;
+                 clip: rect(0 0 0 0); white-space: nowrap; }
+  .cards tbody tr { display: flex; flex-wrap: wrap; align-items: baseline;
+                    gap: var(--space-1) var(--space-4); padding: var(--space-3) 0;
+                    border-bottom: 1px solid var(--pico-muted-border-color); }
+  .cards tbody tr:hover { background: none; }
+  .cards tbody th, .cards tbody td { display: block; padding: 0; border: 0; background: none; }
+  .cards tbody th[scope="row"] { flex: 1 1 12rem; font-size: var(--text-base); }
+  .cards tbody td[data-label] { white-space: nowrap; }
+  .cards tbody td[data-label]::before { content: attr(data-label); display: block;
+                                        font-size: var(--text-xs); color: var(--pico-muted-color);
+                                        font-weight: 500; }
+  .cards tbody td[colspan] { flex-basis: 100%; }
+  .cards .sm-hide { display: none; }
+  .cards .sm-full { flex-basis: 100%; }
+  .cards .sm-full .row-actions { justify-content: flex-start; }
+  .cards .row-actions form { flex: 1; }
+  .cards .row-actions input { flex: 1; width: auto; }
+  .cards .row-actions button { flex: 1; }
+}
+
+/* Number inputs that live inside tables (teardown, return). */
+td > input[type="number"] { width: 5.5rem; margin: 0; }
+@media (max-width: 640px) {
+  .page-head hgroup, .page-head h1 { flex: none; }
+  .page-actions { grid-auto-rows: min-content; align-content: start; align-items: start; }
+  .inline-fields label { display: block; }
+}
+@media (max-width: 640px) {
+  .cards.stack tbody th[scope="row"] { flex-basis: 100%; }
+  .cards.stack tbody td[data-label] { text-align: left; }
+  .cards.stack td > input[type="number"] { width: 5rem; }
+}
+@media (max-width: 640px) {
+  .page-head { display: grid; grid-template-columns: 1fr; gap: var(--space-3); }
+}

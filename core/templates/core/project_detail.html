@@ -39,7 +39,7 @@
   {% endif %}
 </div>
 <figure{% if not project.is_active %} class="fit"{% endif %}>
-<table>
+<table class="cards">
   <thead>
     <tr>
       <th scope="col">Part</th>
@@ -64,12 +64,12 @@
         {% if line.part.value %}<span class="muted">{{ line.part.value }}</span>{% endif %}
         {% if line.note %}<br><small class="muted">{{ line.note }}</small>{% endif %}
       </th>
-      <td class="num muted">{{ line.qty_wanted }}</td>
-      <td class="num">{{ line.qty_allocated }}</td>
+      <td class="num muted sm-hide">{{ line.qty_wanted }}</td>
+      <td class="num sm-hide">{{ line.qty_allocated }}</td>
       {% if project.is_active %}
-        <td class="num {% if line.short %}zero{% else %}muted{% endif %}">{{ line.short }}</td>
-        <td class="num"><strong>{{ line.remaining }}</strong></td>
-        <td>
+        <td class="num {% if line.short %}zero{% else %}muted{% endif %}" data-label="Short">{{ line.short }}</td>
+        <td class="num" data-label="Held"><strong>{{ line.remaining }}</strong></td>
+        <td class="sm-full">
           <div class="row-actions">
             {% if line.remaining %}
               <form method="post" action="{% url 'line_return' project.pk line.pk %}">
@@ -88,9 +88,9 @@
           </div>
         </td>
       {% else %}
-        <td class="num muted">{{ line.qty_returned }}</td>
-        <td class="num">{{ line.qty_soldered }}</td>
-        <td class="num">{{ line.qty_broken }}</td>
+        <td class="num muted" data-label="Returned">{{ line.qty_returned }}</td>
+        <td class="num" data-label="Soldered">{{ line.qty_soldered }}</td>
+        <td class="num" data-label="Broken">{{ line.qty_broken }}</td>
       {% endif %}
     </tr>
     {% empty %}

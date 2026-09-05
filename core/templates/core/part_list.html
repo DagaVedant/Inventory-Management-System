@@ -31,7 +31,7 @@
 
 {% if parts %}
 <figure>
-<table>
+<table class="cards">
   <thead>
     <tr>
       {% for column in columns %}
@@ -49,18 +49,19 @@
     <tr>
       <th scope="row">
         <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
+        {% if part.value or part.package %}<small class="muted sm-only">{{ part.value }}{% if part.value and part.package %} · {% endif %}{{ part.package }}</small>{% endif %}
       </th>
-      <td>{{ part.value|default:"" }}</td>
-      <td class="muted">{{ part.package|default:"" }}</td>
-      <td class="num">{{ part.qty_owned }}</td>
-      <td class="num {% if not part.held %}muted{% endif %}">{{ part.held }}</td>
-      <td class="num {% if part.available == 0 %}zero{% endif %}">
+      <td class="sm-hide">{{ part.value|default:"" }}</td>
+      <td class="muted sm-hide">{{ part.package|default:"" }}</td>
+      <td class="num sm-hide">{{ part.qty_owned }}</td>
+      <td class="num {% if not part.held %}muted{% endif %}" data-label="Held">{{ part.held }}</td>
+      <td class="num {% if part.available == 0 %}zero{% endif %}" data-label="Available">
         <strong>{{ part.available }}</strong>
       </td>
-      <td>
+      <td class="sm-hide">
         {% for t in part.tag_list %}<a class="tag" href="?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}
       </td>
-      <td class="num">
+      <td class="num sm-hide">
         <a href="{% url 'part_update' part.pk %}" class="secondary outline btn-sm" role="button">Edit</a>
       </td>
     </tr>

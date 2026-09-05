@@ -17,7 +17,7 @@
   <p>Holding parts right now.</p>
 </div>
 <figure class="fit">
-<table>
+<table class="cards">
   <thead>
     <tr>
       <th scope="col">Name</th>
@@ -30,9 +30,9 @@
     {% for project in active %}
     <tr>
       <th scope="row"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></th>
-      <td class="num">{{ project.n_lines }}</td>
-      <td class="muted">{{ project.created_at|date:"j M Y" }}</td>
-      <td class="num">
+      <td class="num" data-label="Parts">{{ project.n_lines }}</td>
+      <td class="muted" data-label="Started">{{ project.created_at|date:"j M Y" }}</td>
+      <td class="num sm-hide">
         {% if project.n_lines %}
           <a href="{% url 'project_teardown' project.pk %}" role="button"
              class="secondary outline btn-sm">Tear down</a>
@@ -52,7 +52,7 @@
   <p>Finished builds. Reopen one to undo its teardown.</p>
 </div>
 <figure class="fit">
-<table>
+<table class="cards">
   <thead>
     <tr>
       <th scope="col">Name</th>
@@ -65,9 +65,9 @@
     {% for project in archived %}
     <tr>
       <th scope="row"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></th>
-      <td class="num">{{ project.n_lines }}</td>
-      <td class="muted">{{ project.archived_at|date:"j M Y" }}</td>
-      <td class="num">
+      <td class="num" data-label="Parts">{{ project.n_lines }}</td>
+      <td class="muted" data-label="Torn down">{{ project.archived_at|date:"j M Y" }}</td>
+      <td class="num sm-hide">
         <a href="{% url 'project_reopen' project.pk %}" role="button"
            class="secondary outline btn-sm">Reopen</a>
       </td>
