@@ -11,7 +11,7 @@
   </hgroup>
 </div>
 
-<div class="notice">
+<div class="flash">
   <p>This undoes the teardown. <strong>{{ coming_back }}</strong>
   part{{ coming_back|pluralize }} recorded as soldered in or broken
   {{ coming_back|pluralize:"comes,come" }} back into your inventory, and the
@@ -45,7 +45,7 @@
 
 <form method="post">
   {% csrf_token %}
-  <div class="form-actions">
+  <div class="actions">
     <button type="submit">Reopen</button>
     <a href="{{ detail_url }}" class="muted">Cancel</a>
   </div>

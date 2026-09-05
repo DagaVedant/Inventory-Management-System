@@ -2,7 +2,7 @@
 {% block title %}How it works{% endblock %}
 
 {% block content %}
-<div class="prose">
+<div class="narrow">
 
 <div class="page-head">
   <hgroup>
@@ -98,7 +98,7 @@ DHT22, 4</code></pre>
 </figure>
 
 {% if not user.is_authenticated %}
-  <div class="form-actions" style="margin-top: var(--space-6)">
+  <div class="actions">
     <a href="{% url 'login' %}" role="button">Log in</a>
     <a href="{% url 'signup' %}" role="button" class="secondary">Create an account</a>
   </div>

@@ -31,10 +31,8 @@
 </figure>
 
 {% if tags %}
-<div class="section-head">
-  <h2>Rename or remove</h2>
-  <p>Applies to every part carrying the tag.</p>
-</div>
+<h2>Rename or remove</h2>
+<p class="muted">Applies to every part carrying the tag.</p>
 <form method="post" class="form">
   {% csrf_token %}
   {% include "core/includes/form_errors.html" %}
@@ -42,7 +40,7 @@
     <div>{% include "core/includes/field.html" with field=form.old %}</div>
     <div>{% include "core/includes/field.html" with field=form.new %}</div>
   </div>
-  <div class="form-actions">
+  <div class="actions">
     <button type="submit">Apply</button>
   </div>
 </form>

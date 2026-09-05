@@ -1986,7 +1986,7 @@ class ProjectTableTests(BaseCase):
         ProjectPart.objects.create(project=proj, part=self.part(), qty_allocated=2)
         response = self.client.get(reverse("project_detail", args=[proj.pk]))
         self.assertContains(response, "Remove")
-        self.assertContains(response, 'class="row-actions"')
+        self.assertContains(response, 'class="actions"')
         self.assertNotContains(response, "Soldered")
 
     def test_a_torn_down_project_shows_where_the_parts_went(self):

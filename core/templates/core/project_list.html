@@ -7,15 +7,13 @@
     <h1>Projects</h1>
     <p>{{ active|length }} on the bench · {{ archived|length }} torn down</p>
   </hgroup>
-  <div class="page-actions">
+  <div class="actions">
     <a href="{% url 'project_create' %}" role="button">New project</a>
   </div>
 </div>
 
-<div class="section-head">
-  <h2>On the bench</h2>
-  <p>Holding parts right now.</p>
-</div>
+<h2>On the bench</h2>
+<p class="muted">Holding parts right now.</p>
 <figure class="fit">
 <table class="cards">
   <thead>
@@ -47,10 +45,8 @@
 </table>
 </figure>
 
-<div class="section-head">
-  <h2>Torn down</h2>
-  <p>Finished builds. Reopen one to undo its teardown.</p>
-</div>
+<h2>Torn down</h2>
+<p class="muted">Finished builds. Reopen one to undo its teardown.</p>
 <figure class="fit">
 <table class="cards">
   <thead>

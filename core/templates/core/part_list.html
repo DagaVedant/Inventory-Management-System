@@ -7,7 +7,7 @@
     <h1>Parts</h1>
     <p>{{ total_parts }} in the bin.</p>
   </hgroup>
-  <div class="page-actions">
+  <div class="actions">
     <a href="{% url 'part_create' %}" role="button">Add part</a>
     <a href="{% url 'part_import' %}" role="button" class="secondary">Import</a>
     <a href="{% url 'part_duplicates' %}" role="button" class="secondary outline">Duplicates</a>
@@ -96,7 +96,7 @@
 </figure>
 
 {% if is_paginated %}
-<nav class="pager" aria-label="Pages">
+<nav class="muted" aria-label="Pages">
   {% if page_obj.has_previous %}
     <a href="?{{ page_params }}&page={{ page_obj.previous_page_number }}">Previous</a>
   {% endif %}
@@ -115,7 +115,7 @@
 {% else %}
   <div class="empty">
     <p><strong>No parts yet.</strong> Add the first one, or paste a whole list in.</p>
-    <div class="page-actions">
+    <div class="actions">
       <a href="{% url 'part_create' %}" role="button">Add the first one</a>
       <a href="{% url 'part_import' %}" role="button" class="secondary">Import a list</a>
     </div>

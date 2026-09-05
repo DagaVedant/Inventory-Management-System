@@ -9,7 +9,7 @@
        {{ active|length }} on the bench ·
        {{ archived_count }} torn down</p>
   </hgroup>
-  <div class="page-actions">
+  <div class="actions">
     <a href="{% url 'part_create' %}" role="button" class="secondary">Add part</a>
     <a href="{% url 'project_create' %}" role="button" class="secondary outline">New project</a>
   </div>
@@ -19,17 +19,15 @@
   <div class="empty">
     <p><strong>Nothing in here yet.</strong> Paste a whole bin in at once, or add
        parts one at a time.</p>
-    <div class="page-actions">
+    <div class="actions">
       <a href="{% url 'part_import' %}" role="button">Paste your bin in</a>
       <a href="{% url 'part_create' %}" role="button" class="secondary">Add one at a time</a>
     </div>
   </div>
 {% endif %}
 
-<div class="section-head">
-  <h2>On the bench</h2>
-  <p>Live builds and what they are holding.</p>
-</div>
+<h2>On the bench</h2>
+<p class="muted">Live builds and what they are holding.</p>
 <figure class="fit">
 <table class="cards">
   <thead>
@@ -71,18 +69,14 @@
 </table>
 </figure>
 
-<div class="section-head">
-  <h2>Shopping list</h2>
-  {% if shortfall %}
-    <p>{{ total_short }} part{{ total_short|pluralize }} to buy.</p>
-    <span class="aside">
-      <a href="{% url 'shopping_list_csv' %}">Download CSV</a> ·
-      <a href="{% url 'shopping_list_txt' %}">Plain text</a>
-    </span>
-  {% else %}
-    <p>Nothing to buy.</p>
-  {% endif %}
-</div>
+<h2>Shopping list</h2>
+{% if shortfall %}
+  <p class="muted">{{ total_short }} part{{ total_short|pluralize }} to buy.
+     <a href="{% url 'shopping_list_csv' %}">Download CSV</a> ·
+     <a href="{% url 'shopping_list_txt' %}">Plain text</a></p>
+{% else %}
+  <p class="muted">Nothing to buy.</p>
+{% endif %}
 {% if shortfall %}
 <figure class="fit">
 <table class="cards">
@@ -109,16 +103,14 @@
   </tbody>
 </table>
 </figure>
-<p class="muted filter-note"><strong>For builds</strong> is what live projects asked
+<p class="muted"><strong>For builds</strong> is what live projects asked
    for and could not get. <strong>Wanted</strong> is what you put on the list
    yourself, from a part's own page.</p>
 {% endif %}
 
 {% if running_low %}
-<div class="section-head">
-  <h2>Running low</h2>
-  <p>Fewest available first.</p>
-</div>
+<h2>Running low</h2>
+<p class="muted">Fewest available first.</p>
 <figure class="fit">
 <table class="cards">
   <thead>

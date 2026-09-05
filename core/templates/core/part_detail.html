@@ -15,14 +15,14 @@
       {% endif %}
     </p>
   </hgroup>
-  <div class="page-actions">
+  <div class="actions">
     <a href="{% url 'part_update' part.pk %}" role="button" class="secondary">Edit</a>
     <a href="{% url 'part_merge' part.pk %}" role="button" class="secondary outline">Merge away</a>
   </div>
 </div>
 
 {% if twins %}
-  <div class="notice" role="status">
+  <div class="flash" role="status">
     <p><strong>This looks like the same component as
     {% for twin in twins %}<a href="{% url 'part_detail' twin.pk %}">{{ twin }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</strong>
     <a href="{% url 'part_merge' part.pk %}">Merge them</a>.</p>
@@ -35,8 +35,8 @@
   <div><strong{% if part.available == 0 %} class="zero"{% endif %}>{{ part.available }}</strong><span>available</span></div>
 </div>
 
-<div class="stock-forms">
-  <form method="post" action="{% url 'part_add_stock' part.pk %}" class="inline-fields">
+<div class="actions">
+  <form method="post" action="{% url 'part_add_stock' part.pk %}" class="inline">
     {% csrf_token %}
     <label for="{{ add_stock_form.qty.id_for_label }}">
       {{ add_stock_form.qty.label }}
@@ -45,7 +45,7 @@
     <button type="submit">Add stock</button>
   </form>
 
-  <form method="post" action="{% url 'part_want' part.pk %}" class="inline-fields">
+  <form method="post" action="{% url 'part_want' part.pk %}" class="inline">
     {% csrf_token %}
     <label for="{{ want_form.qty.id_for_label }}">
       {{ want_form.qty.label }}
@@ -55,10 +55,8 @@
   </form>
 </div>
 
-<div class="section-head">
-  <h2>Held right now</h2>
-  <p>Live projects holding some of these.</p>
-</div>
+<h2>Held right now</h2>
+<p class="muted">Live projects holding some of these.</p>
 <figure class="fit">
 <table>
   <thead>
@@ -84,10 +82,8 @@
 </table>
 </figure>
 
-<div class="section-head">
-  <h2>What's happened to it</h2>
-  {% if total_lost %}<p>Lost to builds: <strong>{{ total_lost }}</strong></p>{% endif %}
-</div>
+<h2>What's happened to it</h2>
+{% if total_lost %}<p class="muted">Lost to builds: <strong>{{ total_lost }}</strong></p>{% endif %}
 {% if history %}
 <figure class="fit">
 <table>
@@ -121,10 +117,8 @@
   <p class="muted">No finished builds have used it yet.</p>
 {% endif %}
 
-<div class="section-head">
-  <h2>History</h2>
-  {% if movement_count > 25 %}<p>Showing the last 25 of {{ movement_count }}.</p>{% endif %}
-</div>
+<h2>History</h2>
+{% if movement_count > 25 %}<p class="muted">Showing the last 25 of {{ movement_count }}.</p>{% endif %}
 {% if movements %}
 <figure class="fit">
 <table>
@@ -161,10 +155,8 @@
 {% endif %}
 
 {% if similar %}
-<div class="section-head">
-  <h2>Might do instead</h2>
-  <p>Other parts sharing a tag.</p>
-</div>
+<h2>Might do instead</h2>
+<p class="muted">Other parts sharing a tag.</p>
 <figure class="fit">
 <table>
   <thead>
@@ -191,7 +183,7 @@
 
 {% if part.notes %}
   <h2>Notes</h2>
-  <div class="prose">{{ part.notes|linebreaks }}</div>
+  <div class="narrow">{{ part.notes|linebreaks }}</div>
 {% endif %}
 
 <p class="danger-zone">

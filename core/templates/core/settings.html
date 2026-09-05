@@ -9,10 +9,8 @@
   </hgroup>
 </div>
 
-<div class="section-head">
-  <h2>Public roster</h2>
-  <p>Off by default. Nothing about your bench is visible to anyone else until you tick this.</p>
-</div>
+<h2>Public roster</h2>
+<p class="muted">Off by default. Nothing about your bench is visible to anyone else until you tick this.</p>
 
 <form method="post" class="form">
   {% csrf_token %}
@@ -21,14 +19,12 @@
   <p class="muted"><small>When it is on, the <a href="{% url 'roster' %}">roster</a> and
      <a href="{% url 'bench_public' user.username %}">your public page</a> show exactly
      this, and nothing else: no notes, no packages, no projects by name.</small></p>
-  <div class="form-actions">
+  <div class="actions">
     <button type="submit">Save</button>
   </div>
 </form>
 
-<div class="section-head">
-  <h2>What the roster would show</h2>
-  <p>A preview built from your bench right now.</p>
-</div>
+<h2>What the roster would show</h2>
+<p class="muted">A preview built from your bench right now.</p>
 {% include "core/includes/bench_card.html" %}
 {% endblock %}

@@ -14,7 +14,7 @@
   {% include "core/includes/form_errors.html" %}
   {% include "core/includes/field.html" with field=form.name %}
   {% include "core/includes/field.html" with field=form.description %}
-  <div class="form-actions">
+  <div class="actions">
     <button type="submit">Save</button>
     <a href="{% if object %}{% url 'project_detail' object.pk %}{% else %}{% url 'project_list' %}{% endif %}"
        class="muted">Cancel</a>

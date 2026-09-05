@@ -17,7 +17,7 @@
       {% endif %}
     </p>
   </hgroup>
-  <div class="page-actions">
+  <div class="actions">
     {% if project.is_active and lines %}
       <a href="{% url 'project_teardown' project.pk %}" role="button">Tear down</a>
     {% endif %}
@@ -28,16 +28,10 @@
   </div>
 </div>
 
-{% if project.description %}<p class="lede">{{ project.description }}</p>{% endif %}
+{% if project.description %}<p class="narrow">{{ project.description }}</p>{% endif %}
 
-<div class="section-head">
-  <h2>Parts list</h2>
-  {% if project.is_active %}
-    <p>Return a few early, or remove a line that has not been touched.</p>
-  {% else %}
-    <p>Where every part ended up.</p>
-  {% endif %}
-</div>
+<h2>Parts list</h2>
+<p class="muted">{% if project.is_active %}Return a few early, or remove a line that has not been touched.{% else %}Where every part ended up.{% endif %}</p>
 <figure{% if not project.is_active %} class="fit"{% endif %}>
 <table class="cards">
   <thead>
@@ -70,7 +64,7 @@
         <td class="num {% if line.short %}zero{% else %}muted{% endif %}" data-label="Short">{{ line.short }}</td>
         <td class="num" data-label="Held"><strong>{{ line.remaining }}</strong></td>
         <td class="sm-full">
-          <div class="row-actions">
+          <div class="actions">
             {% if line.remaining %}
               <form method="post" action="{% url 'line_return' project.pk line.pk %}">
                 {% csrf_token %}
@@ -101,10 +95,8 @@
 </figure>
 
 {% if project.is_active %}
-<div class="section-head">
-  <h2>Add a part</h2>
-  <p>Asks for what you need and takes what is available. The rest goes on the shopping list.</p>
-</div>
+<h2>Add a part</h2>
+<p class="muted">Asks for what you need and takes what is available. The rest goes on the shopping list.</p>
 <form method="post" class="form">
   {% csrf_token %}
   {% include "core/includes/form_errors.html" %}
@@ -113,7 +105,7 @@
     <div>{% include "core/includes/field.html" with field=form.qty_wanted %}</div>
     <div>{% include "core/includes/field.html" with field=form.note %}</div>
   </div>
-  <div class="form-actions">
+  <div class="actions">
     <button type="submit">Allocate</button>
   </div>
 </form>
