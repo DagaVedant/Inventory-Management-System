@@ -3,15 +3,15 @@
 
 {% block content %}
 {% if not user.is_authenticated %}
-<p>{% include "core/includes/logo.html" %} <a href="{% url 'dashboard' %}"><strong>Inventory System</strong></a> &middot; <a href="{% url 'login' %}">Log in</a></p>
+<header>
+  <p>{% include "core/includes/logo.html" %} <a href="{% url 'dashboard' %}"><strong>Inventory System</strong></a></p>
+  <nav><a href="{% url 'login' %}">Log in</a> <a href="{% url 'roster' %}">Roster</a></nav>
+  <hr>
+</header>
 {% endif %}
 
-<div class="page-head">
-  <hgroup>
-    <h1>{{ bench.user.username }}'s bench</h1>
-    <p>On the <a href="{% url 'roster' %}">roster</a> by choice.</p>
-  </hgroup>
-</div>
+<h1>{{ bench.user.username }}'s bench</h1>
+<p>On the <a href="{% url 'roster' %}">roster</a> by choice.</p>
 
 {% include "core/includes/bench_card.html" %}
 {% endblock %}

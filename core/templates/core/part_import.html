@@ -2,35 +2,21 @@
 {% block title %}Import parts{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <hgroup>
-    <h1>Import parts</h1>
-    <p>One part per line. Name and quantity are required, the rest is optional.</p>
-  </hgroup>
-</div>
+<h1>Import parts</h1>
+<p>One part per line. Name and quantity are required, the rest is optional.</p>
+<pre><code>name, quantity, value, package, tag, tag, ...</code></pre>
 
-<form method="post" class="form">
+<form method="post">
   {% csrf_token %}
-
-  <pre><code>name, quantity, value, package, tag, tag, ...</code></pre>
-
   {% if form.text.errors %}
-    <div class="flash error" role="alert">
-      <p><strong>Nothing was imported.</strong></p>
-      {% for error in form.text.errors %}<p>{{ error }}</p>{% endfor %}
-    </div>
+    <p role="alert"><strong>Nothing was imported.</strong></p>
+    <ul class="errorlist">{% for error in form.text.errors %}<li>{{ error }}</li>{% endfor %}</ul>
   {% endif %}
-
-  <label for="{{ form.text.id_for_label }}">
-    {{ form.text.label }}
-    {{ form.text }}
-  </label>
-
-  {% include "core/includes/field.html" with field=form.top_up %}
-
-  <div class="actions">
+  <p><label>{{ form.text.label }} {{ form.text }}</label></p>
+  <p><label style="display:inline">{{ form.top_up }} {{ form.top_up.label }}</label></p>
+  <p>
     <button type="submit">Import</button>
-    <a href="{% url 'part_list' %}" class="muted">Cancel</a>
-  </div>
+    <a href="{% url 'part_list' %}">Cancel</a>
+  </p>
 </form>
 {% endblock %}

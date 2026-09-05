@@ -1,30 +1,22 @@
 {% comment %}Public summary of one bench. Only ever rendered for users who opted in.{% endcomment %}
-<div class="stats">
-  <div><strong>{{ bench.part_count }}</strong><span>part{{ bench.part_count|pluralize }}</span></div>
-  <div><strong>{{ bench.unit_count }}</strong><span>unit{{ bench.unit_count|pluralize }} owned</span></div>
-  <div><strong>{{ bench.live_builds }}</strong><span>on the bench</span></div>
-  <div><strong>{{ bench.torn_down }}</strong><span>torn down</span></div>
-</div>
+<p><b>{{ bench.part_count }}</b> part{{ bench.part_count|pluralize }} &middot;
+   <b>{{ bench.unit_count }}</b> unit{{ bench.unit_count|pluralize }} owned &middot;
+   <b>{{ bench.live_builds }}</b> on the bench &middot;
+   <b>{{ bench.torn_down }}</b> torn down</p>
 {% if bench.tags %}
-  <p>{% for tag, count in bench.tags %}<span class="tag">{{ tag }} <span class="muted">{{ count }}</span></span>{% endfor %}</p>
+  <p>Busiest tags: {% for tag, count in bench.tags %}{{ tag }} ({{ count }}){% if not forloop.last %}, {% endif %}{% endfor %}</p>
 {% endif %}
 {% if bench.stacks %}
-<figure class="fit">
 <table>
-  <thead>
-    <tr>
-      <th scope="col">Biggest stacks</th>
-      <th scope="col" class="num">Owned</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for part in bench.stacks %}
-    <tr>
-      <th scope="row">{{ part.name }}{% if part.value %} <span class="muted val">{{ part.value }}</span>{% endif %}</th>
-      <td class="num">{{ part.qty_owned }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
+  <tr>
+    <th>Biggest stacks</th>
+    <th>Owned</th>
+  </tr>
+  {% for part in bench.stacks %}
+  <tr>
+    <td>{{ part.name }}{% if part.value %} <code>{{ part.value }}</code>{% endif %}</td>
+    <td>{{ part.qty_owned }}</td>
+  </tr>
+  {% endfor %}
 </table>
-</figure>
 {% endif %}

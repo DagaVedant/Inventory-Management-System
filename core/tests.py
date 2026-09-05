@@ -1900,9 +1900,10 @@ class GuideTests(ClearsThrottle, TestCase):
 class NavigationTests(BaseCase):
     def test_the_brand_is_a_mark_not_a_link(self):
         response = self.client.get(reverse("dashboard"))
-        self.assertContains(response, '<span class="brand">')
+        self.assertContains(response, "<strong>Inventory System</strong>")
         self.assertNotContains(
-            response, f'<a href="{reverse("guide")}">Inventory System</a>'
+            response,
+            f'<a href="{reverse("guide")}"><strong>Inventory System</strong></a>',
         )
 
     def test_every_section_has_its_own_nav_entry(self):
@@ -1986,7 +1987,7 @@ class ProjectTableTests(BaseCase):
         ProjectPart.objects.create(project=proj, part=self.part(), qty_allocated=2)
         response = self.client.get(reverse("project_detail", args=[proj.pk]))
         self.assertContains(response, "Remove")
-        self.assertContains(response, 'class="actions"')
+        self.assertContains(response, "Return")
         self.assertNotContains(response, "Soldered")
 
     def test_a_torn_down_project_shows_where_the_parts_went(self):

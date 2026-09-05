@@ -2,26 +2,19 @@
 {% block title %}Log in{% endblock %}
 
 {% block content %}
-<div class="auth">
-  <h1>Inventory System</h1>
+<h1>Inventory System</h1>
 
-  {% if form.errors %}
-    <div class="flash error" role="alert">
-      <p>That username and password don't match. Check both and try again.</p>
-    </div>
-  {% endif %}
+{% if form.errors %}
+  <p role="alert"><mark>That username and password don't match. Check both and try again.</mark></p>
+{% endif %}
 
-  <form method="post" class="form">
-    {% csrf_token %}
-    {% include "core/includes/field.html" with field=form.username %}
-    {% include "core/includes/field.html" with field=form.password %}
-    <button type="submit">Log in</button>
-  </form>
+<form method="post">
+  {% csrf_token %}
+  <p><label>Username {{ form.username }}</label></p>
+  <p><label>Password {{ form.password }}</label></p>
+  <p><button type="submit">Log in</button></p>
+</form>
 
-  <p>No account? <a href="{% url 'signup' %}">Create one</a>.</p>
-
-  <p class="muted"><small>
-    New here? <a href="{% url 'guide' %}">How it works</a>.
-  </small></p>
-</div>
+<p>No account? <a href="{% url 'signup' %}">Create one</a>.</p>
+<p><small>New here? <a href="{% url 'guide' %}">How it works</a>.</small></p>
 {% endblock %}

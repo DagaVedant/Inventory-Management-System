@@ -2,40 +2,26 @@
 {% block title %}Merge {{ source.name }}{% endblock %}
 
 {% block content %}
-<div class="narrow">
+<h1>Merge {{ source }} away</h1>
+<p>Pick the part to keep. This one is folded into it and deleted. This can't be undone.</p>
 
-<div class="page-head">
-  <hgroup>
-    <h1>Merge {{ source }} away</h1>
-    <p>Pick the part to keep. This one is folded into it and deleted. This can't be undone.</p>
-  </hgroup>
-</div>
-
-<div class="flash">
-  <p><strong>{{ source.qty_owned }}</strong> owned,
-  <strong>{{ line_count }}</strong> project line{{ line_count|pluralize }} and
-  <strong>{{ history_count }}</strong> history line{{ history_count|pluralize }}
-  move across.</p>
-</div>
+<p><b>{{ source.qty_owned }}</b> owned,
+   <b>{{ line_count }}</b> project line{{ line_count|pluralize }} and
+   <b>{{ history_count }}</b> history line{{ history_count|pluralize }} move across.</p>
 
 {% if likely %}
-  <p class="muted">Looks like the same component as
-    {% for part in likely %}<strong>{{ part }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}.
-  </p>
+  <p>Looks like the same component as
+    {% for part in likely %}<b>{{ part }}</b>{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
 {% else %}
-  <p class="muted">No likely match.</p>
+  <p>No likely match.</p>
 {% endif %}
 
-<form method="post" class="form">
+<form method="post">
   {% csrf_token %}
-  {% include "core/includes/form_errors.html" %}
-  {% include "core/includes/field.html" with field=form.target %}
-
-  <div class="actions">
-    <button type="submit" class="btn-danger">Merge and delete {{ source.name }}</button>
-    <a href="{% url 'part_detail' source.pk %}" class="muted">Cancel</a>
-  </div>
+  {{ form.as_p }}
+  <p>
+    <button type="submit">Merge and delete {{ source.name }}</button>
+    <a href="{% url 'part_detail' source.pk %}">Cancel</a>
+  </p>
 </form>
-
-</div>
 {% endblock %}

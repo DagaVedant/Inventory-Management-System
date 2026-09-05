@@ -2,22 +2,15 @@
 {% block title %}{% if object %}Edit project{% else %}New project{% endif %}{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <hgroup>
-    <h1>{% if object %}Edit {{ object.name }}{% else %}New project{% endif %}</h1>
-    <p>{% if object %}Name and description only. Parts are managed on the project page.{% else %}Give it a name, then allocate parts from its page.{% endif %}</p>
-  </hgroup>
-</div>
+<h1>{% if object %}Edit {{ object.name }}{% else %}New project{% endif %}</h1>
+<p><small>{% if object %}Name and description only. Parts are managed on the project page.{% else %}Give it a name, then allocate parts from its page.{% endif %}</small></p>
 
-<form method="post" class="form">
+<form method="post">
   {% csrf_token %}
-  {% include "core/includes/form_errors.html" %}
-  {% include "core/includes/field.html" with field=form.name %}
-  {% include "core/includes/field.html" with field=form.description %}
-  <div class="actions">
+  {{ form.as_p }}
+  <p>
     <button type="submit">Save</button>
-    <a href="{% if object %}{% url 'project_detail' object.pk %}{% else %}{% url 'project_list' %}{% endif %}"
-       class="muted">Cancel</a>
-  </div>
+    <a href="{% if object %}{% url 'project_detail' object.pk %}{% else %}{% url 'project_list' %}{% endif %}">Cancel</a>
+  </p>
 </form>
 {% endblock %}

@@ -1,55 +1,41 @@
 {% load static %}<!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#15171a">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-  <title>{% block title %}Parts{% endblock %} · Inventory System</title>
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Parts{% endblock %} - Inventory System</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
-  <link rel="stylesheet" href="{% static 'pico.min.css' %}">
   <link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
-<div class="container">
 
-  {% if user.is_authenticated %}
-  <nav class="topbar" aria-label="Main">
-    <span class="brand">
-      {% include "core/includes/logo.html" %}
-      <strong>Inventory System</strong>
-    </span>
-    <span class="links">
-      <a href="{% url 'dashboard' %}"{% if nav_section == "bench" %} aria-current="page"{% endif %}>Bench</a>
-      <a href="{% url 'part_list' %}"{% if nav_section == "parts" %} aria-current="page"{% endif %}>Parts</a>
-      <a href="{% url 'project_list' %}"{% if nav_section == "projects" %} aria-current="page"{% endif %}>Projects</a>
-      <a href="{% url 'guide' %}"{% if nav_section == "guide" %} aria-current="page"{% endif %}>Guide</a>
-      <a href="{% url 'roster' %}"{% if nav_section == "roster" %} aria-current="page"{% endif %}>Roster</a>
-    </span>
-    <span class="who">
-      <a href="{% url 'settings' %}" class="muted"{% if nav_section == "settings" %} aria-current="page"{% endif %}>{{ user.username }}</a>
-      <form method="post" action="{% url 'logout' %}">
-        {% csrf_token %}
-        <button type="submit" class="secondary outline btn-sm">Log out</button>
-      </form>
-    </span>
+{% if user.is_authenticated %}
+<header>
+  <p>{% include "core/includes/logo.html" %} <strong>Inventory System</strong></p>
+  <nav>
+    <a href="{% url 'dashboard' %}"{% if nav_section == "bench" %} aria-current="page"{% endif %}>Bench</a>
+    <a href="{% url 'part_list' %}"{% if nav_section == "parts" %} aria-current="page"{% endif %}>Parts</a>
+    <a href="{% url 'project_list' %}"{% if nav_section == "projects" %} aria-current="page"{% endif %}>Projects</a>
+    <a href="{% url 'guide' %}"{% if nav_section == "guide" %} aria-current="page"{% endif %}>Guide</a>
+    <a href="{% url 'roster' %}"{% if nav_section == "roster" %} aria-current="page"{% endif %}>Roster</a>
+    <a href="{% url 'settings' %}"{% if nav_section == "settings" %} aria-current="page"{% endif %}>{{ user.username }}</a>
+    <form method="post" action="{% url 'logout' %}" style="display:inline">
+      {% csrf_token %}
+      <button type="submit">Log out</button>
+    </form>
   </nav>
-  {% endif %}
+  <hr>
+</header>
+{% endif %}
 
-  <main id="main">
-    {% for message in messages %}
-      <div class="flash {{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
-        <p>{{ message }}</p>
-      </div>
-    {% endfor %}
+<main>
+  {% for message in messages %}
+    <p role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}"><mark>{{ message }}</mark></p>
+  {% endfor %}
 
-    {% block content %}{% endblock %}
-  </main>
+  {% block content %}{% endblock %}
+</main>
 
-</div>
 </body>
 </html>

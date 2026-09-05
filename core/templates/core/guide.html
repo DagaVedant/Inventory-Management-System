@@ -2,55 +2,23 @@
 {% block title %}How it works{% endblock %}
 
 {% block content %}
-<div class="narrow">
-
-<div class="page-head">
-  <hgroup>
-    <h1>How it works</h1>
-    <p>A project borrows parts and holds them until you tear it down. Most come
-       back. The ones soldered in or broken do not.</p>
-  </hgroup>
-</div>
+<h1>How it works</h1>
+<p>A project borrows parts and holds them until you tear it down. Most come
+   back. The ones soldered in or broken do not.</p>
 
 <h2>Three numbers</h2>
-<figure class="fit">
-<table>
-  <tbody>
-    <tr>
-      <th scope="row">Owned</th>
-      <td>Everything you have, loose or inside a live build.</td>
-    </tr>
-    <tr>
-      <th scope="row">Held</th>
-      <td>Inside a project right now.</td>
-    </tr>
-    <tr>
-      <th scope="row">Available</th>
-      <td>Owned minus held.</td>
-    </tr>
-  </tbody>
-</table>
-</figure>
+<ul>
+  <li><b>Owned</b>: everything you have, loose or inside a live build.</li>
+  <li><b>Held</b>: inside a project right now.</li>
+  <li><b>Available</b>: owned minus held.</li>
+</ul>
 
 <h2>Teardown</h2>
-<figure class="fit">
-<table>
-  <tbody>
-    <tr>
-      <th scope="row">Returned</th>
-      <td>Back on the shelf.</td>
-    </tr>
-    <tr>
-      <th scope="row">Soldered in</th>
-      <td>Gone for good.</td>
-    </tr>
-    <tr>
-      <th scope="row">Broken</th>
-      <td>Gone for good.</td>
-    </tr>
-  </tbody>
-</table>
-</figure>
+<ul>
+  <li><b>Returned</b>: back on the shelf.</li>
+  <li><b>Soldered in</b>: gone for good.</li>
+  <li><b>Broken</b>: gone for good.</li>
+</ul>
 <p>Each line must add up to what the project was holding. Reopen undoes it.</p>
 
 <h2>Short</h2>
@@ -64,45 +32,16 @@
 DHT22, 4</code></pre>
 
 <h2>Where things live</h2>
-<figure class="fit">
-<table>
-  <tbody>
-    <tr>
-      <th scope="row"><a href="{% url 'dashboard' %}">Bench</a></th>
-      <td>In progress, what to buy, what is running low.</td>
-    </tr>
-    <tr>
-      <th scope="row"><a href="{% url 'part_list' %}">Parts</a></th>
-      <td>Everything you own. Search it, click a column to sort.</td>
-    </tr>
-    <tr>
-      <th scope="row"><a href="{% url 'project_list' %}">Projects</a></th>
-      <td>Live builds and everything torn down.</td>
-    </tr>
-    <tr>
-      <th scope="row"><a href="{% url 'part_duplicates' %}">Duplicates</a></th>
-      <td><code>10k</code> and <code>10k&#937;</code> are one part.
-          <code>4.7k</code> and <code>47k</code> are not.</td>
-    </tr>
-    <tr>
-      <th scope="row"><a href="{% url 'tag_index' %}">Tags</a></th>
-      <td>Rename or remove a tag across every part at once.</td>
-    </tr>
-    <tr>
-      <th scope="row"><a href="{% url 'roster' %}">Roster</a></th>
-      <td>Benches whose owners chose to show them. Yours stays private
-          until you say otherwise in settings.</td>
-    </tr>
-  </tbody>
-</table>
-</figure>
+<ul>
+  <li><a href="{% url 'dashboard' %}">Bench</a>: in progress, what to buy, what is running low.</li>
+  <li><a href="{% url 'part_list' %}">Parts</a>: everything you own. Search it, click a column to sort.</li>
+  <li><a href="{% url 'project_list' %}">Projects</a>: live builds and everything torn down.</li>
+  <li><a href="{% url 'part_duplicates' %}">Duplicates</a>: <code>10k</code> and <code>10k&#937;</code> are one part. <code>4.7k</code> and <code>47k</code> are not.</li>
+  <li><a href="{% url 'tag_index' %}">Tags</a>: rename or remove a tag across every part at once.</li>
+  <li><a href="{% url 'roster' %}">Roster</a>: benches whose owners chose to show them. Yours stays private until you say otherwise in settings.</li>
+</ul>
 
 {% if not user.is_authenticated %}
-  <div class="actions">
-    <a href="{% url 'login' %}" role="button">Log in</a>
-    <a href="{% url 'signup' %}" role="button" class="secondary">Create an account</a>
-  </div>
+<p><a href="{% url 'login' %}">Log in</a> &middot; <a href="{% url 'signup' %}">Create an account</a></p>
 {% endif %}
-
-</div>
 {% endblock %}
