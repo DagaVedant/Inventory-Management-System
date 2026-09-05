@@ -61,7 +61,9 @@
 
 <h2>Shopping list</h2>
 {% if shortfall %}
-<p class="muted">{{ total_short }} part{{ total_short|pluralize }} to buy.</p>
+<p class="muted">{{ total_short }} part{{ total_short|pluralize }} to buy.
+   <a href="{% url 'shopping_list_csv' %}">Download CSV</a> ·
+   <a href="{% url 'shopping_list_txt' %}">Plain text</a></p>
 <figure>
 <table>
   <thead>

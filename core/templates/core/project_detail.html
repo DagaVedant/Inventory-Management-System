@@ -41,12 +41,15 @@
       <th scope="col">Part</th>
       <th scope="col" class="num">Needs</th>
       <th scope="col" class="num">Got</th>
-      <th scope="col" class="num">Short</th>
-      <th scope="col" class="num">Held</th>
-      <th scope="col" class="num">Returned</th>
-      <th scope="col" class="num">Soldered</th>
-      <th scope="col" class="num">Broken</th>
-      <th scope="col"></th>
+      {% if project.is_active %}
+        <th scope="col" class="num">Short</th>
+        <th scope="col" class="num">Held</th>
+        <th scope="col"></th>
+      {% else %}
+        <th scope="col" class="num">Returned</th>
+        <th scope="col" class="num">Soldered</th>
+        <th scope="col" class="num">Broken</th>
+      {% endif %}
     </tr>
   </thead>
   <tbody>
@@ -59,34 +62,35 @@
       </th>
       <td class="num muted">{{ line.qty_wanted }}</td>
       <td class="num">{{ line.qty_allocated }}</td>
-      <td class="num {% if line.short %}zero{% else %}muted{% endif %}">{{ line.short }}</td>
-      <td class="num"><strong>{{ line.remaining }}</strong></td>
-      <td class="num muted">{{ line.qty_returned }}</td>
-      <td class="num muted">{{ line.qty_soldered }}</td>
-      <td class="num muted">{{ line.qty_broken }}</td>
-      <td style="white-space:nowrap">
-        {% if project.is_active %}
-          {% if line.remaining %}
-            <form method="post" action="{% url 'line_return' project.pk line.pk %}"
-                  class="inline-form">
-              {% csrf_token %}
-              <input type="number" name="qty" min="1" max="{{ line.remaining }}"
-                     value="1" aria-label="How many to return">
-              <button type="submit" class="secondary btn-sm">Return</button>
-            </form>
-          {% endif %}
-          {% if not line.accounted %}
-            <form method="post" action="{% url 'line_remove' project.pk line.pk %}"
-                  class="inline-form">
-              {% csrf_token %}
-              <button type="submit" class="secondary outline btn-sm">Remove</button>
-            </form>
-          {% endif %}
-        {% endif %}
-      </td>
+      {% if project.is_active %}
+        <td class="num {% if line.short %}zero{% else %}muted{% endif %}">{{ line.short }}</td>
+        <td class="num"><strong>{{ line.remaining }}</strong></td>
+        <td>
+          <div class="row-actions">
+            {% if line.remaining %}
+              <form method="post" action="{% url 'line_return' project.pk line.pk %}">
+                {% csrf_token %}
+                <input type="number" name="qty" min="1" max="{{ line.remaining }}"
+                       value="1" aria-label="How many to return">
+                <button type="submit" class="secondary btn-sm">Return</button>
+              </form>
+            {% endif %}
+            {% if not line.accounted %}
+              <form method="post" action="{% url 'line_remove' project.pk line.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="secondary outline btn-sm">Remove</button>
+              </form>
+            {% endif %}
+          </div>
+        </td>
+      {% else %}
+        <td class="num muted">{{ line.qty_returned }}</td>
+        <td class="num">{{ line.qty_soldered }}</td>
+        <td class="num">{{ line.qty_broken }}</td>
+      {% endif %}
     </tr>
     {% empty %}
-    <tr><td colspan="9" class="muted">Nothing allocated yet.</td></tr>
+    <tr><td colspan="6" class="muted">Nothing allocated yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>

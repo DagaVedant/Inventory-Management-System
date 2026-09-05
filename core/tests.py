@@ -1919,3 +1919,115 @@ class HealthCheckTests(TestCase):
     def test_healthz_does_not_require_login(self):
         response = Client().get(reverse("healthz"))
         self.assertNotIn("Location", response.headers)
+
+
+class SearchTests(BaseCase):
+    url = reverse_lazy("part_list")
+
+    def test_every_word_has_to_match_somewhere(self):
+        self.part("LCD 16x2", qty=1, tags="display, i2c")
+        self.part("SSD1306 OLED", qty=1, tags="display")
+        self.part("LCD backlight LED", qty=1)
+
+        response = self.client.get(self.url, {"q": "LCD display"})
+        self.assertContains(response, "LCD 16x2")
+        self.assertNotContains(response, "SSD1306 OLED")
+        self.assertNotContains(response, "LCD backlight LED")
+
+    def test_words_can_come_from_different_fields_in_any_order(self):
+        self.part("Resistor", qty=1, value="10k", package="0805")
+        self.part("Resistor", qty=1, value="10k", package="through-hole")
+        response = self.client.get(self.url, {"q": "0805 10k"})
+        self.assertEqual(len(response.context["parts"]), 1)
+        self.assertEqual(response.context["parts"][0].package, "0805")
+
+    def test_extra_whitespace_is_ignored(self):
+        self.part("DHT22", qty=1)
+        response = self.client.get(self.url, {"q": "   DHT22   "})
+        self.assertContains(response, "DHT22")
+
+
+class ProjectTableTests(BaseCase):
+    def test_a_live_project_shows_actions_not_teardown_columns(self):
+        proj = self.project()
+        ProjectPart.objects.create(project=proj, part=self.part(), qty_allocated=2)
+        response = self.client.get(reverse("project_detail", args=[proj.pk]))
+        self.assertContains(response, "Remove")
+        self.assertContains(response, 'class="row-actions"')
+        self.assertNotContains(response, "Soldered")
+
+    def test_a_torn_down_project_shows_where_the_parts_went(self):
+        proj = self.project(status=ProjectStatus.ARCHIVED)
+        ProjectPart.objects.create(
+            project=proj,
+            part=self.part(),
+            qty_allocated=3,
+            qty_returned=2,
+            qty_soldered=1,
+        )
+        response = self.client.get(reverse("project_detail", args=[proj.pk]))
+        self.assertContains(response, "Soldered")
+        self.assertNotContains(response, "Remove")
+
+
+class CachingTests(BaseCase):
+    def test_logged_in_pages_are_never_cached(self):
+        for name in ["dashboard", "part_list", "project_list"]:
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name))
+                self.assertIn("no-store", response["Cache-Control"])
+
+    def test_anonymous_pages_are_left_alone(self):
+        response = Client().get(reverse("guide"))
+        self.assertFalse(response.has_header("Cache-Control"))
+
+
+class ShoppingListExportTests(BaseCase):
+    def setUp(self):
+        super().setUp()
+        scarce = self.part("DHT22", qty=1, package="module")
+        ProjectPart.objects.create(
+            project=self.project("Build A"),
+            part=scarce,
+            qty_wanted=4,
+            qty_allocated=1,
+        )
+        wanted = self.part("Resistor", qty=50, value="10k")
+        Part.objects.filter(pk=wanted.pk).update(qty_to_buy=20)
+
+    def test_exports_need_login(self):
+        for name in ["shopping_list_csv", "shopping_list_txt"]:
+            with self.subTest(name=name):
+                response = Client().get(reverse(name))
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("/accounts/login/", response["Location"])
+
+    def test_csv_has_a_header_and_one_row_per_part(self):
+        response = self.client.get(reverse("shopping_list_csv"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/csv", response["Content-Type"])
+        self.assertIn("shopping-list.csv", response["Content-Disposition"])
+        lines = response.content.decode().strip().splitlines()
+        self.assertEqual(lines[0], "part,value,package,for builds,wanted,total")
+        self.assertEqual(lines[1], "Resistor,10k,,0,20,20")
+        self.assertEqual(lines[2], "DHT22,,module,3,0,3")
+
+    def test_text_is_one_line_per_part_ready_to_paste(self):
+        response = self.client.get(reverse("shopping_list_txt"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/plain", response["Content-Type"])
+        self.assertEqual(
+            response.content.decode(), "20 x Resistor 10k\n3 x DHT22 (module)\n"
+        )
+
+    def test_dashboard_links_to_both(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, reverse("shopping_list_csv"))
+        self.assertContains(response, reverse("shopping_list_txt"))
+
+    def test_only_your_own_shortfall_is_exported(self):
+        stranger = User.objects.create_user("stranger", "s@e.com", "pw12345!")
+        theirs = Part.objects.create(user=stranger, name="Their part", qty_owned=0)
+        Part.objects.filter(pk=theirs.pk).update(qty_to_buy=9)
+        response = self.client.get(reverse("shopping_list_csv"))
+        self.assertNotContains(response, "Their part")

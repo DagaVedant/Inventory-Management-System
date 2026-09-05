@@ -1,3 +1,5 @@
+import csv
+
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
@@ -6,7 +8,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.db import OperationalError, connection, transaction
 from django.db.models import Count, F, ProtectedError, Q, Sum
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.functional import cached_property
@@ -100,6 +102,78 @@ class GuideView(TemplateView):
     template_name = "core/guide.html"
 
 
+def shopping_list(user):
+    rows = {}
+
+    for row in (
+        ProjectPart.objects.filter(
+            project__user=user, project__status=ProjectStatus.ACTIVE
+        )
+        .values("part_id", "part__name", "part__value", "part__package")
+        .annotate(short=Sum(F("qty_wanted") - F("qty_allocated")))
+        .filter(short__gt=0)
+    ):
+        rows[row["part_id"]] = {
+            "part_id": row["part_id"],
+            "name": row["part__name"],
+            "value": row["part__value"],
+            "package": row["part__package"],
+            "from_builds": row["short"],
+            "wanted": 0,
+        }
+
+    for part in Part.objects.filter(user=user, qty_to_buy__gt=0):
+        row = rows.setdefault(
+            part.pk,
+            {
+                "part_id": part.pk,
+                "name": part.name,
+                "value": part.value,
+                "package": part.package,
+                "from_builds": 0,
+                "wanted": 0,
+            },
+        )
+        row["wanted"] = part.qty_to_buy
+
+    for row in rows.values():
+        row["total"] = row["from_builds"] + row["wanted"]
+
+    return sorted(rows.values(), key=lambda row: (-row["total"], row["name"]))
+
+
+@login_required
+def shopping_list_csv(request):
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="shopping-list.csv"'
+    writer = csv.writer(response)
+    writer.writerow(["part", "value", "package", "for builds", "wanted", "total"])
+    for row in shopping_list(request.user):
+        writer.writerow(
+            [
+                row["name"],
+                row["value"],
+                row["package"],
+                row["from_builds"],
+                row["wanted"],
+                row["total"],
+            ]
+        )
+    return response
+
+
+@login_required
+def shopping_list_txt(request):
+    lines = []
+    for row in shopping_list(request.user):
+        label = " ".join(bit for bit in (row["name"], row["value"]) if bit)
+        if row["package"]:
+            label += f" ({row['package']})"
+        lines.append(f"{row['total']} x {label}")
+    body = "\n".join(lines) + "\n" if lines else "Nothing to buy.\n"
+    return HttpResponse(body, content_type="text/plain; charset=utf-8")
+
+
 class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "core/dashboard.html"
 
@@ -117,45 +191,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             project.held_count = sum(line.remaining for line in lines)
             project.short_count = sum(line.short for line in lines)
 
-        shortfall = {}
-
-        for row in (
-            ProjectPart.objects.filter(
-                project__user=user, project__status=ProjectStatus.ACTIVE
-            )
-            .values("part_id", "part__name", "part__value")
-            .annotate(short=Sum(F("qty_wanted") - F("qty_allocated")))
-            .filter(short__gt=0)
-        ):
-            shortfall[row["part_id"]] = {
-                "part_id": row["part_id"],
-                "name": row["part__name"],
-                "value": row["part__value"],
-                "from_builds": row["short"],
-                "wanted": 0,
-            }
-
+        shortfall = shopping_list(user)
         parts = Part.objects.filter(user=user).with_availability()
-
-        for part in parts.filter(qty_to_buy__gt=0):
-            row = shortfall.setdefault(
-                part.pk,
-                {
-                    "part_id": part.pk,
-                    "name": part.name,
-                    "value": part.value,
-                    "from_builds": 0,
-                    "wanted": 0,
-                },
-            )
-            row["wanted"] = part.qty_to_buy
-
-        for row in shortfall.values():
-            row["total"] = row["from_builds"] + row["wanted"]
-
-        shortfall = sorted(
-            shortfall.values(), key=lambda row: (-row["total"], row["name"])
-        )
 
         return super().get_context_data(
             active=active,
@@ -202,13 +239,13 @@ class PartListView(OwnedMixin, ListView):
         qs = super().get_queryset().with_availability()
 
         query = self.request.GET.get("q", "").strip()
-        if query:
+        for word in query.split():
             qs = qs.filter(
-                Q(name__icontains=query)
-                | Q(value__icontains=query)
-                | Q(package__icontains=query)
-                | Q(tags__icontains=query)
-                | Q(notes__icontains=query)
+                Q(name__icontains=word)
+                | Q(value__icontains=word)
+                | Q(package__icontains=word)
+                | Q(tags__icontains=word)
+                | Q(notes__icontains=word)
             )
 
         tag = self.request.GET.get("tag", "").strip()
