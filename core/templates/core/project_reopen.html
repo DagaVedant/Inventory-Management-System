@@ -2,21 +2,23 @@
 {% block title %}Reopen {{ project.name }}{% endblock %}
 
 {% block content %}
-<div style="max-width:44rem">
+<div class="narrow">
 
-<hgroup>
-  <h1>Put {{ project.name }} back on the bench?</h1>
-  <p>Torn down {{ project.archived_at|date:"j M Y" }}.</p>
-</hgroup>
+<div class="page-head">
+  <hgroup>
+    <h1>Put {{ project.name }} back on the bench?</h1>
+    <p>Torn down {{ project.archived_at|date:"j M Y" }}.</p>
+  </hgroup>
+</div>
 
-<article>
-  This undoes the teardown. <strong>{{ coming_back }}</strong>
+<div class="notice">
+  <p>This undoes the teardown. <strong>{{ coming_back }}</strong>
   part{{ coming_back|pluralize }} recorded as soldered in or broken
   {{ coming_back|pluralize:"comes,come" }} back into your inventory, and the
-  project starts holding its parts again.
-</article>
+  project starts holding its parts again.</p>
+</div>
 
-<figure>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -43,7 +45,7 @@
 
 <form method="post">
   {% csrf_token %}
-  <div style="display:flex; gap:.5rem; align-items:center;">
+  <div class="form-actions">
     <button type="submit">Reopen</button>
     <a href="{{ detail_url }}" class="muted">Cancel</a>
   </div>

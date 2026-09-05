@@ -2,25 +2,31 @@
 {% block title %}Parts{% endblock %}
 
 {% block content %}
-<hgroup>
-  <h1>Parts</h1>
-  <p>{{ total_parts }} in the bin.</p>
-</hgroup>
+<div class="page-head">
+  <hgroup>
+    <h1>Parts</h1>
+    <p>{{ total_parts }} in the bin.</p>
+  </hgroup>
+  <div class="page-actions">
+    <a href="{% url 'part_create' %}" role="button">Add part</a>
+    <a href="{% url 'part_import' %}" role="button" class="secondary">Import</a>
+    <a href="{% url 'part_duplicates' %}" role="button" class="secondary outline">Duplicates</a>
+    <a href="{% url 'tag_index' %}" role="button" class="secondary outline">Tags</a>
+  </div>
+</div>
 
-<div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
-  <form method="get" role="search" style="flex:1; min-width:16rem; margin:0;">
-    <input type="search" name="q" value="{{ query }}" autofocus
-           placeholder="Search name, value, package, tags, notes">
+<div class="toolbar">
+  <form method="get" role="search">
+    <input type="search" id="q" name="q" value="{{ query }}"
+           aria-label="Search parts" autocomplete="off" spellcheck="false"
+           placeholder="Search name, value, package, tags, notes…">
+    {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
   </form>
-  <a href="{% url 'part_create' %}" role="button">Add part</a>
-  <a href="{% url 'part_import' %}" role="button" class="secondary">Import</a>
-  <a href="{% url 'part_duplicates' %}" role="button" class="secondary outline">Duplicates</a>
-  <a href="{% url 'tag_index' %}" role="button" class="secondary outline">Tags</a>
 </div>
 
 {% if tag %}
-  <p class="muted">Filtered to <span class="tag">{{ tag }}</span>
-     <a href="{% url 'part_list' %}">clear</a></p>
+  <p class="filter-note muted">Filtered to <span class="tag">{{ tag }}</span>
+     <a href="{% url 'part_list' %}{% if query %}?q={{ query|urlencode }}{% endif %}">clear</a></p>
 {% endif %}
 
 {% if parts %}
@@ -29,10 +35,9 @@
   <thead>
     <tr>
       {% for column in columns %}
-        <th scope="col" {% if column.numeric %}class="num"{% endif %}>
-          <a href="{{ column.url }}" style="text-decoration:none">
-            {{ column.label }}{% if column.active %}{% if column.descending %} ↓{% else %} ↑{% endif %}{% endif %}
-          </a>
+        <th scope="col"{% if column.numeric %} class="num"{% endif %}
+            aria-sort="{% if column.active %}{% if column.descending %}descending{% else %}ascending{% endif %}{% else %}none{% endif %}">
+          <a href="{{ column.url }}">{{ column.label }}{% if column.active %}<span aria-hidden="true">{% if column.descending %} ↓{% else %} ↑{% endif %}</span>{% endif %}</a>
         </th>
       {% endfor %}
       <th scope="col">Tags</th>
@@ -48,15 +53,15 @@
       <td>{{ part.value|default:"" }}</td>
       <td class="muted">{{ part.package|default:"" }}</td>
       <td class="num">{{ part.qty_owned }}</td>
-      <td class="num {% if part.held %}{% else %}muted{% endif %}">{{ part.held }}</td>
+      <td class="num {% if not part.held %}muted{% endif %}">{{ part.held }}</td>
       <td class="num {% if part.available == 0 %}zero{% endif %}">
         <strong>{{ part.available }}</strong>
       </td>
       <td>
         {% for t in part.tag_list %}<a class="tag" href="?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}
       </td>
-      <td style="white-space:nowrap">
-        <a href="{% url 'part_update' part.pk %}" class="btn-sm" role="button">Edit</a>
+      <td class="num">
+        <a href="{% url 'part_update' part.pk %}" class="secondary outline btn-sm" role="button">Edit</a>
       </td>
     </tr>
     {% endfor %}
@@ -65,7 +70,7 @@
 </figure>
 
 {% if is_paginated %}
-<nav>
+<nav class="pager" aria-label="Pages">
   {% if page_obj.has_previous %}
     <a href="?{{ page_params }}&page={{ page_obj.previous_page_number }}">Previous</a>
   {% endif %}
@@ -76,13 +81,18 @@
 </nav>
 {% endif %}
 
-{% elif query %}
-  <p class="muted">Nothing matches “{{ query }}”.</p>
+{% elif query or tag %}
+  <div class="empty">
+    <p>Nothing matches{% if query %} "{{ query }}"{% endif %}{% if tag %} in <span class="tag">{{ tag }}</span>{% endif %}.
+       Try fewer words, or <a href="{% url 'part_list' %}">clear the search</a>.</p>
+  </div>
 {% else %}
-  <article>
-    <p>No parts yet.</p>
-    <a href="{% url 'part_create' %}" role="button">Add the first one</a>
-    <a href="{% url 'part_import' %}" role="button" class="secondary">Import a list</a>
-  </article>
+  <div class="empty">
+    <p><strong>No parts yet.</strong> Add the first one, or paste a whole list in.</p>
+    <div class="page-actions">
+      <a href="{% url 'part_create' %}" role="button">Add the first one</a>
+      <a href="{% url 'part_import' %}" role="button" class="secondary">Import a list</a>
+    </div>
+  </div>
 {% endif %}
 {% endblock %}

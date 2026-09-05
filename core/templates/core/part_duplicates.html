@@ -2,14 +2,16 @@
 {% block title %}Possible duplicates{% endblock %}
 
 {% block content %}
-<hgroup>
-  <h1>Possible duplicates</h1>
-  <p>{{ checked }} part{{ checked|pluralize }} checked.</p>
-</hgroup>
+<div class="page-head">
+  <hgroup>
+    <h1>Possible duplicates</h1>
+    <p>{{ checked }} part{{ checked|pluralize }} checked. Same name and value, ignoring case, spacing and units.</p>
+  </hgroup>
+</div>
 
 {% if duplicates %}
 {% for group in duplicates %}
-<figure>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -32,9 +34,9 @@
       <td class="num">{{ part.qty_owned }}</td>
       <td class="num muted">{{ part.held }}</td>
       <td class="num"><strong>{{ part.available }}</strong></td>
-      <td style="white-space:nowrap">
+      <td class="num">
         <a href="{% url 'part_merge' part.pk %}" role="button"
-           class="secondary btn-sm">Merge away</a>
+           class="secondary outline btn-sm">Merge away</a>
       </td>
     </tr>
     {% endfor %}
@@ -44,10 +46,8 @@
 {% endfor %}
 
 {% else %}
-  <article>
-    <p><strong>Nothing looks duplicated.</strong></p>
-  </article>
+  <div class="empty">
+    <p><strong>Nothing looks duplicated.</strong> Every part has a distinct name and value.</p>
+  </div>
 {% endif %}
-
-<p><a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a></p>
 {% endblock %}

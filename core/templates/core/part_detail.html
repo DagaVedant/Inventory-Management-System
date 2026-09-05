@@ -2,67 +2,64 @@
 {% block title %}{{ part.name }}{% endblock %}
 
 {% block content %}
-<hgroup>
-  <h1>{{ part.name }}</h1>
-  <p>
-    {% if part.value %}{{ part.value }}{% endif %}
-    {% if part.package %}· {{ part.package }}{% endif %}
-    {% if part.voltage %}· {{ part.voltage }}{% endif %}
-    {% if part.pin_count %}· {{ part.pin_count }} pins{% endif %}
-  </p>
-</hgroup>
-
-{% if twins %}
-  <article>
-    <strong>This looks like the same component as
-    {% for twin in twins %}<a href="{% url 'part_detail' twin.pk %}">{{ twin }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</strong>
-    <p style="margin:.5rem 0 0"><small>
-       <a href="{% url 'part_merge' part.pk %}">Merge them</a>.</small></p>
-  </article>
-{% endif %}
-
-{% if part.tag_list %}
-  <p>{% for t in part.tag_list %}<a class="tag" href="{% url 'part_list' %}?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}</p>
-{% endif %}
-
-<div class="grid" style="margin-bottom:1.5rem;">
-  <article style="text-align:center">
-    <h2 style="margin:0">{{ part.qty_owned }}</h2>
-    <small class="muted">owned</small>
-  </article>
-  <article style="text-align:center">
-    <h2 style="margin:0">{{ part.held }}</h2>
-    <small class="muted">held by projects</small>
-  </article>
-  <article style="text-align:center">
-    <h2 style="margin:0" {% if part.available == 0 %}class="zero"{% endif %}>{{ part.available }}</h2>
-    <small class="muted">available</small>
-  </article>
+<div class="page-head">
+  <hgroup>
+    <h1>{{ part.name }}</h1>
+    <p>
+      {% if part.value %}{{ part.value }}{% endif %}
+      {% if part.package %}· {{ part.package }}{% endif %}
+      {% if part.voltage %}· {{ part.voltage }}{% endif %}
+      {% if part.pin_count %}· {{ part.pin_count }} pins{% endif %}
+      {% if part.tag_list %}
+        <br>{% for t in part.tag_list %}<a class="tag" href="{% url 'part_list' %}?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}
+      {% endif %}
+    </p>
+  </hgroup>
+  <div class="page-actions">
+    <a href="{% url 'part_update' part.pk %}" role="button" class="secondary">Edit</a>
+    <a href="{% url 'part_merge' part.pk %}" role="button" class="secondary outline">Merge away</a>
+  </div>
 </div>
 
-<form method="post" action="{% url 'part_add_stock' part.pk %}"
-      style="display:flex; gap:.5rem; align-items:flex-end; flex-wrap:wrap;">
-  {% csrf_token %}
-  <label style="margin:0">
-    {{ add_stock_form.qty.label }}
-    {{ add_stock_form.qty }}
-  </label>
-  <button type="submit" style="width:auto">Add stock</button>
-</form>
+{% if twins %}
+  <div class="notice" role="status">
+    <p><strong>This looks like the same component as
+    {% for twin in twins %}<a href="{% url 'part_detail' twin.pk %}">{{ twin }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</strong>
+    <a href="{% url 'part_merge' part.pk %}">Merge them</a>.</p>
+  </div>
+{% endif %}
 
-<form method="post" action="{% url 'part_want' part.pk %}"
-      style="display:flex; gap:.5rem; align-items:flex-end; flex-wrap:wrap;
-             margin-top:.5rem;">
-  {% csrf_token %}
-  <label style="margin:0">
-    {{ want_form.qty.label }}
-    {{ want_form.qty }}
-  </label>
-  <button type="submit" class="secondary" style="width:auto">Save</button>
-</form>
+<div class="stats">
+  <div><strong>{{ part.qty_owned }}</strong><span>owned</span></div>
+  <div><strong>{{ part.held }}</strong><span>held by projects</span></div>
+  <div><strong{% if part.available == 0 %} class="zero"{% endif %}>{{ part.available }}</strong><span>available</span></div>
+</div>
 
-<h2>Held right now</h2>
-<figure>
+<div class="stock-forms">
+  <form method="post" action="{% url 'part_add_stock' part.pk %}" class="inline-fields">
+    {% csrf_token %}
+    <label for="{{ add_stock_form.qty.id_for_label }}">
+      {{ add_stock_form.qty.label }}
+      {{ add_stock_form.qty }}
+    </label>
+    <button type="submit">Add stock</button>
+  </form>
+
+  <form method="post" action="{% url 'part_want' part.pk %}" class="inline-fields">
+    {% csrf_token %}
+    <label for="{{ want_form.qty.id_for_label }}">
+      {{ want_form.qty.label }}
+      {{ want_form.qty }}
+    </label>
+    <button type="submit" class="secondary">Save</button>
+  </form>
+</div>
+
+<div class="section-head">
+  <h2>Held right now</h2>
+  <p>Live projects holding some of these.</p>
+</div>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -87,9 +84,12 @@
 </table>
 </figure>
 
-<h2>What's happened to it</h2>
+<div class="section-head">
+  <h2>What's happened to it</h2>
+  {% if total_lost %}<p>Lost to builds: <strong>{{ total_lost }}</strong></p>{% endif %}
+</div>
 {% if history %}
-<figure>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -117,16 +117,16 @@
   </tbody>
 </table>
 </figure>
-{% if total_lost %}
-  <p class="muted">Lost to builds: <strong>{{ total_lost }}</strong></p>
-{% endif %}
 {% else %}
   <p class="muted">No finished builds have used it yet.</p>
 {% endif %}
 
-<h2>History</h2>
+<div class="section-head">
+  <h2>History</h2>
+  {% if movement_count > 25 %}<p>Showing the last 25 of {{ movement_count }}.</p>{% endif %}
+</div>
 {% if movements %}
-<figure>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -156,16 +156,16 @@
   </tbody>
 </table>
 </figure>
-{% if movement_count > 25 %}
-  <p class="muted"><small>Showing the last 25 of {{ movement_count }}.</small></p>
-{% endif %}
 {% else %}
   <p class="muted">Nothing recorded yet.</p>
 {% endif %}
 
 {% if similar %}
-<h2>Might do instead</h2>
-<figure>
+<div class="section-head">
+  <h2>Might do instead</h2>
+  <p>Other parts sharing a tag.</p>
+</div>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -191,15 +191,10 @@
 
 {% if part.notes %}
   <h2>Notes</h2>
-  <p>{{ part.notes|linebreaks }}</p>
+  <div class="prose">{{ part.notes|linebreaks }}</div>
 {% endif %}
 
-<div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:2rem;">
-  <a href="{% url 'part_update' part.pk %}" role="button" class="secondary">Edit</a>
-  <a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a>
-  <a href="{% url 'part_merge' part.pk %}" role="button" class="secondary outline">Merge away</a>
-  <span style="margin-left:auto">
-    <a href="{% url 'part_delete' part.pk %}" class="muted">Delete</a>
-  </span>
-</div>
+<p class="danger-zone">
+  <a href="{% url 'part_delete' part.pk %}">Delete this part</a>
+</p>
 {% endblock %}

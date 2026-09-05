@@ -2,17 +2,22 @@
 {% block title %}Tear down {{ project.name }}{% endblock %}
 
 {% block content %}
-<hgroup>
-  <h1>Tear down {{ project.name }}</h1>
-  <p>Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}.</p>
-</hgroup>
+<div class="page-head">
+  <hgroup>
+    <h1>Tear down {{ project.name }}</h1>
+    <p>Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}.
+       Say where each one went. Every line has to add up to what is still held.</p>
+  </hgroup>
+</div>
 
 <form method="post">
   {% csrf_token %}
   {{ formset.management_form }}
 
   {% if formset.non_form_errors %}
-    <article>{{ formset.non_form_errors }}</article>
+    <div class="flash error" role="alert">
+      {% for error in formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}
+    </div>
   {% endif %}
 
   <figure>
@@ -48,7 +53,7 @@
   </table>
   </figure>
 
-  <div style="display:flex; gap:.5rem; align-items:center;">
+  <div class="form-actions">
     <button type="submit">Tear down and archive</button>
     <a href="{{ detail_url }}" class="muted">Cancel</a>
   </div>

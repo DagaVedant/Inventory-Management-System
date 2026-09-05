@@ -2,33 +2,43 @@
 {% block title %}Delete {{ object.name }}{% endblock %}
 
 {% block content %}
-<h1>Delete {{ object.name }}?</h1>
+<div class="narrow">
+
+<div class="page-head">
+  <hgroup>
+    <h1>Delete {{ object.name }}?</h1>
+    {% if object.is_active %}
+      {% if total_held %}
+        <p>Holding {{ total_held }} part{{ total_held|pluralize }}.</p>
+      {% else %}
+        <p>Nothing allocated, so nothing changes in your inventory.</p>
+      {% endif %}
+    {% else %}
+      <p>Torn down. Part quantities won't change.</p>
+    {% endif %}
+  </hgroup>
+</div>
 
 {% if object.is_active %}
   {% if total_held %}
-    <article>
-      This project is holding <strong>{{ total_held }}</strong>
-      part{{ total_held|pluralize }}. Deleting it hands every one of them
-      straight back to the shelf, with nothing marked soldered or broken.
-    </article>
-    <p class="muted">
-       <a href="{% url 'project_teardown' object.pk %}">Tear it down instead</a>.</p>
-  {% else %}
-    <p class="muted">Nothing allocated, so nothing changes in your inventory.</p>
+    <div class="notice">
+      <p>Deleting it hands every held part straight back to the shelf, with
+         nothing marked soldered or broken.
+         <a href="{% url 'project_teardown' object.pk %}">Tear it down instead</a>
+         if some were used up.</p>
+    </div>
   {% endif %}
 {% else %}
-  <article>
-    This project was torn down. Deleting it removes the record of what it was
-    built from and what it cost you:
+  <div class="notice">
+    <p>This removes the record of what it was built from and what it cost you:
     {{ summary.returned|default:0 }} returned,
     {{ summary.soldered|default:0 }} soldered in,
-    {{ summary.broken|default:0 }} broken.
-  </article>
-  <p class="muted">Part quantities won't change.</p>
+    {{ summary.broken|default:0 }} broken.</p>
+  </div>
 {% endif %}
 
 {% if lines %}
-<figure>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -52,9 +62,11 @@
 
 <form method="post">
   {% csrf_token %}
-  <div style="display:flex; gap:.5rem; align-items:center;">
-    <button type="submit" class="contrast">Delete permanently</button>
+  <div class="form-actions">
+    <button type="submit" class="btn-danger">Delete permanently</button>
     <a href="{% url 'project_detail' object.pk %}" class="muted">Cancel</a>
   </div>
 </form>
+
+</div>
 {% endblock %}

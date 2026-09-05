@@ -2,39 +2,43 @@
 {% block title %}{{ project.name }}{% endblock %}
 
 {% block content %}
-<hgroup>
-  <h1>{{ project.name }}</h1>
-  <p>
-    {% if project.is_active %}
-      Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}{% if total_short %},
-      and <strong class="zero">{{ total_short }}</strong> short{% endif %}.
-    {% else %}
-      Torn down {{ project.archived_at|date:"j M Y" }}.
-      {{ summary.returned|default:0 }} returned,
-      {{ summary.soldered|default:0 }} soldered in,
-      {{ summary.broken|default:0 }} broken.
+<div class="page-head">
+  <hgroup>
+    <h1>{{ project.name }}</h1>
+    <p>
+      {% if project.is_active %}
+        Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}{% if total_short %},
+        and <strong class="zero">{{ total_short }}</strong> short{% endif %}.
+      {% else %}
+        Torn down {{ project.archived_at|date:"j M Y" }}.
+        {{ summary.returned|default:0 }} returned,
+        {{ summary.soldered|default:0 }} soldered in,
+        {{ summary.broken|default:0 }} broken.
+      {% endif %}
+    </p>
+  </hgroup>
+  <div class="page-actions">
+    {% if project.is_active and lines %}
+      <a href="{% url 'project_teardown' project.pk %}" role="button">Tear down</a>
     {% endif %}
-  </p>
-</hgroup>
-
-{% if project.description %}<p>{{ project.description }}</p>{% endif %}
-
-<div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.5rem;">
-  {% if project.is_active and lines %}
-    <a href="{% url 'project_teardown' project.pk %}" role="button">Tear down</a>
-  {% endif %}
-  {% if not project.is_active %}
-    <a href="{% url 'project_reopen' project.pk %}" role="button">Reopen</a>
-  {% endif %}
-  <a href="{% url 'project_update' project.pk %}" role="button" class="secondary">Edit</a>
-  <a href="{% url 'project_list' %}" role="button" class="secondary outline">All projects</a>
-  <span style="margin-left:auto">
-    <a href="{% url 'project_delete' project.pk %}" class="muted">Delete</a>
-  </span>
+    {% if not project.is_active %}
+      <a href="{% url 'project_reopen' project.pk %}" role="button">Reopen</a>
+    {% endif %}
+    <a href="{% url 'project_update' project.pk %}" role="button" class="secondary">Edit</a>
+  </div>
 </div>
 
-<h2>Parts list</h2>
-<figure>
+{% if project.description %}<p class="lede">{{ project.description }}</p>{% endif %}
+
+<div class="section-head">
+  <h2>Parts list</h2>
+  {% if project.is_active %}
+    <p>Return a few early, or remove a line that has not been touched.</p>
+  {% else %}
+    <p>Where every part ended up.</p>
+  {% endif %}
+</div>
+<figure{% if not project.is_active %} class="fit"{% endif %}>
 <table>
   <thead>
     <tr>
@@ -90,18 +94,32 @@
       {% endif %}
     </tr>
     {% empty %}
-    <tr><td colspan="6" class="muted">Nothing allocated yet.</td></tr>
+    <tr><td colspan="6" class="muted">Nothing allocated yet. Add one below.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
 
 {% if project.is_active %}
-<h2>Add a part</h2>
-<form method="post">
+<div class="section-head">
+  <h2>Add a part</h2>
+  <p>Asks for what you need and takes what is available. The rest goes on the shopping list.</p>
+</div>
+<form method="post" class="form">
   {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Allocate</button>
+  {% include "core/includes/form_errors.html" %}
+  <div class="grid">
+    <div>{% include "core/includes/field.html" with field=form.part %}</div>
+    <div>{% include "core/includes/field.html" with field=form.qty_wanted %}</div>
+    <div>{% include "core/includes/field.html" with field=form.note %}</div>
+  </div>
+  <div class="form-actions">
+    <button type="submit">Allocate</button>
+  </div>
 </form>
 {% endif %}
+
+<p class="danger-zone">
+  <a href="{% url 'project_delete' project.pk %}">Delete this project</a>
+</p>
 {% endblock %}

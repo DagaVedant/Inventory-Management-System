@@ -2,23 +2,35 @@
 {% block title %}Bench{% endblock %}
 
 {% block content %}
-<hgroup>
-  <h1>Bench</h1>
-  <p>{{ total_parts }} part{{ total_parts|pluralize }} ·
-     {{ active|length }} on the bench ·
-     {{ archived_count }} torn down</p>
-</hgroup>
+<div class="page-head">
+  <hgroup>
+    <h1>Bench</h1>
+    <p>{{ total_parts }} part{{ total_parts|pluralize }} ·
+       {{ active|length }} on the bench ·
+       {{ archived_count }} torn down</p>
+  </hgroup>
+  <div class="page-actions">
+    <a href="{% url 'part_create' %}" role="button" class="secondary">Add part</a>
+    <a href="{% url 'project_create' %}" role="button" class="secondary outline">New project</a>
+  </div>
+</div>
 
 {% if not total_parts %}
-  <article>
-    <p><strong>Nothing in here yet.</strong></p>
-    <a href="{% url 'part_import' %}" role="button">Paste your bin in</a>
-    <a href="{% url 'part_create' %}" role="button" class="secondary">Add one at a time</a>
-  </article>
+  <div class="empty">
+    <p><strong>Nothing in here yet.</strong> Paste a whole bin in at once, or add
+       parts one at a time.</p>
+    <div class="page-actions">
+      <a href="{% url 'part_import' %}" role="button">Paste your bin in</a>
+      <a href="{% url 'part_create' %}" role="button" class="secondary">Add one at a time</a>
+    </div>
+  </div>
 {% endif %}
 
-<h2>On the bench</h2>
-<figure>
+<div class="section-head">
+  <h2>On the bench</h2>
+  <p>Live builds and what they are holding.</p>
+</div>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -40,10 +52,10 @@
       <td class="num {% if project.short_count %}zero{% else %}muted{% endif %}">
         {{ project.short_count }}
       </td>
-      <td style="white-space:nowrap">
+      <td class="num">
         {% if project.n_lines %}
           <a href="{% url 'project_teardown' project.pk %}" role="button"
-             class="secondary btn-sm">Tear down</a>
+             class="secondary outline btn-sm">Tear down</a>
         {% endif %}
       </td>
     </tr>
@@ -59,12 +71,20 @@
 </table>
 </figure>
 
-<h2>Shopping list</h2>
+<div class="section-head">
+  <h2>Shopping list</h2>
+  {% if shortfall %}
+    <p>{{ total_short }} part{{ total_short|pluralize }} to buy.</p>
+    <span class="aside">
+      <a href="{% url 'shopping_list_csv' %}">Download CSV</a> ·
+      <a href="{% url 'shopping_list_txt' %}">Plain text</a>
+    </span>
+  {% else %}
+    <p>Nothing to buy.</p>
+  {% endif %}
+</div>
 {% if shortfall %}
-<p class="muted">{{ total_short }} part{{ total_short|pluralize }} to buy.
-   <a href="{% url 'shopping_list_csv' %}">Download CSV</a> ·
-   <a href="{% url 'shopping_list_txt' %}">Plain text</a></p>
-<figure>
+<figure class="fit">
 <table>
   <thead>
     <tr>
@@ -89,13 +109,17 @@
   </tbody>
 </table>
 </figure>
-{% else %}
-  <p class="muted">Nothing to buy.</p>
+<p class="muted filter-note"><strong>For builds</strong> is what live projects asked
+   for and could not get. <strong>Wanted</strong> is what you put on the list
+   yourself, from a part's own page.</p>
 {% endif %}
 
 {% if running_low %}
-<h2>Running low</h2>
-<figure>
+<div class="section-head">
+  <h2>Running low</h2>
+  <p>Fewest available first.</p>
+</div>
+<figure class="fit">
 <table>
   <thead>
     <tr>

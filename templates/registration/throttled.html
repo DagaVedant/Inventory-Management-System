@@ -2,9 +2,9 @@
 {% block title %}Too many attempts{% endblock %}
 
 {% block content %}
-<div style="max-width:24rem; margin:3rem auto;">
+<div class="auth">
   <h1>Too many attempts</h1>
-  <p>Too many tries in a short space of time. Try again in a few minutes.</p>
+  <p>Too many tries in a short space of time. Wait a few minutes, then try again.</p>
   <p><a href="{% url 'login' %}" role="button">Back to log in</a></p>
 </div>
 {% endblock %}

@@ -1899,7 +1899,25 @@ class NavigationTests(BaseCase):
             ("guide", "Guide"),
         ]:
             with self.subTest(label=label):
-                self.assertContains(response, f'<a href="{reverse(name)}">{label}</a>')
+                self.assertContains(response, f'href="{reverse(name)}"')
+                self.assertContains(response, f">{label}</a>")
+
+    def test_the_current_section_is_marked_in_the_nav(self):
+        cases = [
+            ("dashboard", "dashboard", "Bench"),
+            ("part_list", "part_list", "Parts"),
+            ("tag_index", "part_list", "Parts"),
+            ("project_list", "project_list", "Projects"),
+            ("guide", "guide", "Guide"),
+        ]
+        for page, link, label in cases:
+            with self.subTest(page=page):
+                response = self.client.get(reverse(page))
+                self.assertContains(
+                    response,
+                    f'<a href="{reverse(link)}" aria-current="page">{label}</a>',
+                )
+                self.assertEqual(response.content.decode().count("aria-current"), 1)
 
     def test_bench_is_still_the_landing_page_after_login(self):
         client = Client()

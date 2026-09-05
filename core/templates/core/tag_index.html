@@ -2,14 +2,14 @@
 {% block title %}Tags{% endblock %}
 
 {% block content %}
-<div style="max-width:44rem">
+<div class="page-head">
+  <hgroup>
+    <h1>Tags</h1>
+    <p>{{ tags|length }} in use. Click one to see its parts.</p>
+  </hgroup>
+</div>
 
-<hgroup>
-  <h1>Tags</h1>
-  <p>{{ tags|length }} in use.</p>
-</hgroup>
-
-<figure>
+<figure class="fit narrow">
 <table>
   <thead>
     <tr>
@@ -24,23 +24,27 @@
       <td class="num">{{ count }}</td>
     </tr>
     {% empty %}
-    <tr><td colspan="2" class="muted">No tags yet.</td></tr>
+    <tr><td colspan="2" class="muted">No tags yet. Add some on a part's edit page.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
 
 {% if tags %}
-<h2>Rename or remove</h2>
-
-<form method="post">
+<div class="section-head">
+  <h2>Rename or remove</h2>
+  <p>Applies to every part carrying the tag.</p>
+</div>
+<form method="post" class="form">
   {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Apply</button>
+  {% include "core/includes/form_errors.html" %}
+  <div class="grid">
+    <div>{% include "core/includes/field.html" with field=form.old %}</div>
+    <div>{% include "core/includes/field.html" with field=form.new %}</div>
+  </div>
+  <div class="form-actions">
+    <button type="submit">Apply</button>
+  </div>
 </form>
 {% endif %}
-
-<p><a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a></p>
-
-</div>
 {% endblock %}

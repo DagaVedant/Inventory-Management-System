@@ -3,16 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#13171f">
   <title>{% block title %}Parts{% endblock %} · Inventory System</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'pico.min.css' %}">
   <link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <div class="container">
 
   {% if user.is_authenticated %}
-  <nav class="topbar">
+  <nav class="topbar" aria-label="Main">
     <span class="brand">
       <svg class="logo" viewBox="0 0 32 32" role="img" aria-label="Inventory System">
         <rect x="1.6" y="1.6" width="28.8" height="28.8" rx="4.5" fill="#1E7D3C" stroke="#0D5326" stroke-width="1.2"/>
@@ -48,25 +51,28 @@
       </svg>
       <strong>Inventory System</strong>
     </span>
-    <a href="{% url 'dashboard' %}">Bench</a>
-    <a href="{% url 'part_list' %}">Parts</a>
-    <a href="{% url 'project_list' %}">Projects</a>
-    <a href="{% url 'guide' %}">Guide</a>
-    <span class="spacer"></span>
-    <span class="muted">{{ user.username }}</span>
-    <form method="post" action="{% url 'logout' %}" class="inline-form">
-      {% csrf_token %}
-      <button type="submit" class="secondary btn-sm">Log out</button>
-    </form>
+    <span class="links">
+      <a href="{% url 'dashboard' %}"{% if nav_section == "bench" %} aria-current="page"{% endif %}>Bench</a>
+      <a href="{% url 'part_list' %}"{% if nav_section == "parts" %} aria-current="page"{% endif %}>Parts</a>
+      <a href="{% url 'project_list' %}"{% if nav_section == "projects" %} aria-current="page"{% endif %}>Projects</a>
+      <a href="{% url 'guide' %}"{% if nav_section == "guide" %} aria-current="page"{% endif %}>Guide</a>
+    </span>
+    <span class="who">
+      <span class="muted">{{ user.username }}</span>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="secondary outline btn-sm">Log out</button>
+      </form>
+    </span>
   </nav>
   {% endif %}
 
-  <main>
-    {% if messages %}
-      {% for message in messages %}
-        <article class="flash">{{ message }}</article>
-      {% endfor %}
-    {% endif %}
+  <main id="main">
+    {% for message in messages %}
+      <div class="flash {{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+        <p>{{ message }}</p>
+      </div>
+    {% endfor %}
 
     {% block content %}{% endblock %}
   </main>
