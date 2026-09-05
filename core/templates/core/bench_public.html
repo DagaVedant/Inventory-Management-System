@@ -3,10 +3,7 @@
 
 {% block content %}
 {% if not user.is_authenticated %}
-<header class="landing-bar">
-  <a href="{% url 'dashboard' %}" class="brand">{% include "core/includes/logo.html" %}<strong>Inventory System</strong></a>
-  <a href="{% url 'login' %}">Log in</a>
-</header>
+<p>{% include "core/includes/logo.html" %} <a href="{% url 'dashboard' %}"><strong>Inventory System</strong></a> &middot; <a href="{% url 'login' %}">Log in</a></p>
 {% endif %}
 
 <div class="page-head">
