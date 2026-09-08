@@ -2,25 +2,21 @@
 {% block title %}Roster{% endblock %}
 
 {% block content %}
-{% if not user.is_authenticated %}
-<p>{% include "core/includes/logo.html" %} <a href="{% url 'dashboard' %}"><strong>Inventory System</strong></a> &middot; <a href="{% url 'login' %}">Log in</a></p>
+<hgroup>
+  <h1>Roster</h1>
+  <p>Benches their owners chose to show. Sorted by how many distinct parts they keep.</p>
+</hgroup>
+
+{% if user.is_authenticated %}
+  <p><a href="{% url 'settings' %}" role="button" class="secondary outline">Show mine</a></p>
+{% else %}
+  <p><a href="{% url 'login' %}" role="button" class="secondary">Log in</a>
+     <a href="{% url 'signup' %}" role="button" class="secondary outline">Create an account</a></p>
 {% endif %}
 
-<div class="page-head">
-  <hgroup>
-    <h1>Roster</h1>
-    <p>Benches their owners chose to show. Sorted by how many distinct parts they keep.</p>
-  </hgroup>
-  {% if user.is_authenticated %}
-  <div class="actions">
-    <a href="{% url 'settings' %}" role="button" class="secondary outline">Show mine</a>
-  </div>
-  {% endif %}
-</div>
-
 {% if rows %}
-<figure class="fit">
-<table class="cards">
+<figure>
+<table>
   <thead>
     <tr>
       <th scope="col">Bench</th>
@@ -34,19 +30,19 @@
     {% for row in rows %}
     <tr>
       <th scope="row"><a href="{% url 'bench_public' row.user.username %}">{{ row.user.username }}</a></th>
-      <td class="num" data-label="Parts">{{ row.part_count }}</td>
-      <td class="num" data-label="Units">{{ row.unit_count }}</td>
-      <td class="num sm-hide">{{ row.live_builds }}</td>
-      <td class="sm-hide">{% for tag, count in row.tags|slice:":3" %}<span class="tag">{{ tag }}</span>{% endfor %}</td>
+      <td class="num">{{ row.part_count }}</td>
+      <td class="num">{{ row.unit_count }}</td>
+      <td class="num">{{ row.live_builds }}</td>
+      <td>{% for tag, count in row.tags|slice:":3" %}<span class="tag">{{ tag }}</span>{% endfor %}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 </figure>
 {% else %}
-  <div class="empty">
+  <article>
     <p><strong>Nobody is on the roster yet.</strong>
        {% if user.is_authenticated %}Be the first from <a href="{% url 'settings' %}">your settings</a>.{% else %}<a href="{% url 'signup' %}">Create an account</a> and opt in from your settings.{% endif %}</p>
-  </div>
+  </article>
 {% endif %}
 {% endblock %}

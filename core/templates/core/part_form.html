@@ -2,53 +2,32 @@
 {% block title %}{% if object %}Edit part{% else %}Add part{% endif %}{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <hgroup>
-    <h1>{% if object %}Edit {{ object.name }}{% else %}Add a part{% endif %}</h1>
-    <p>{% if object %}Changing the quantity writes a recount to its history.{% else %}Only a name and a quantity are needed. The rest helps you find it later.{% endif %}</p>
-  </hgroup>
-</div>
+<h1>{% if object %}Edit {{ object.name }}{% else %}Add a part{% endif %}</h1>
 
-<form method="post" class="form">
+<form method="post">
   {% csrf_token %}
-  {% include "core/includes/form_errors.html" %}
+  {{ form.as_p }}
 
-  {% include "core/includes/field.html" with field=form.name %}
-
-  <div class="grid">
-    <div>{% include "core/includes/field.html" with field=form.qty_owned %}</div>
-    <div>{% include "core/includes/field.html" with field=form.value %}</div>
-    <div>{% include "core/includes/field.html" with field=form.package %}</div>
-  </div>
-
-  <div class="grid">
-    <div>{% include "core/includes/field.html" with field=form.pin_count %}</div>
-    <div>{% include "core/includes/field.html" with field=form.voltage %}</div>
-  </div>
-
-  {% include "core/includes/field.html" with field=form.tags %}
   {% if form.known_tags %}
     <datalist id="known-tags">
       {% for tag in form.known_tags %}<option value="{{ tag }}"></option>{% endfor %}
     </datalist>
   {% endif %}
 
-  {% include "core/includes/field.html" with field=form.notes %}
-
-  <div class="actions">
+  <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
     <button type="submit">Save</button>
     {% if not object %}
       <button type="submit" name="_addanother" value="1" class="secondary">
         Save and add another
       </button>
     {% endif %}
-    <a href="{% if object %}{% url 'part_detail' object.pk %}{% else %}{% url 'part_list' %}{% endif %}" class="muted">Cancel</a>
+    <a href="{% url 'part_list' %}" class="muted">Cancel</a>
+    {% if object %}
+      <span style="margin-left:auto">
+        <a href="{% url 'part_delete' object.pk %}" class="muted">Delete</a>
+      </span>
+    {% endif %}
   </div>
 </form>
 
-{% if object %}
-<p class="danger-zone">
-  <a href="{% url 'part_delete' object.pk %}">Delete this part</a>
-</p>
-{% endif %}
 {% endblock %}

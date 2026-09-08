@@ -2,16 +2,14 @@
 {% block title %}Possible duplicates{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <hgroup>
-    <h1>Possible duplicates</h1>
-    <p>{{ checked }} part{{ checked|pluralize }} checked. Same name and value, ignoring case, spacing and units.</p>
-  </hgroup>
-</div>
+<hgroup>
+  <h1>Possible duplicates</h1>
+  <p>{{ checked }} part{{ checked|pluralize }} checked.</p>
+</hgroup>
 
 {% if duplicates %}
 {% for group in duplicates %}
-<figure class="fit">
+<figure>
 <table>
   <thead>
     <tr>
@@ -28,15 +26,15 @@
     <tr>
       <th scope="row">
         <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
-        {% if part.value %}<span class="muted val">{{ part.value }}</span>{% endif %}
+        {% if part.value %}<span class="muted">{{ part.value }}</span>{% endif %}
       </th>
-      <td class="muted val">{{ part.package|default:"" }}</td>
+      <td class="muted">{{ part.package|default:"" }}</td>
       <td class="num">{{ part.qty_owned }}</td>
       <td class="num muted">{{ part.held }}</td>
       <td class="num"><strong>{{ part.available }}</strong></td>
-      <td class="num">
+      <td style="white-space:nowrap">
         <a href="{% url 'part_merge' part.pk %}" role="button"
-           class="secondary outline btn-sm">Merge away</a>
+           class="secondary btn-sm">Merge away</a>
       </td>
     </tr>
     {% endfor %}
@@ -46,8 +44,10 @@
 {% endfor %}
 
 {% else %}
-  <div class="empty">
-    <p><strong>Nothing looks duplicated.</strong> Every part has a distinct name and value.</p>
-  </div>
+  <article>
+    <p><strong>Nothing looks duplicated.</strong></p>
+  </article>
 {% endif %}
+
+<p><a href="{% url 'part_list' %}" role="button" class="secondary outline">All parts</a></p>
 {% endblock %}

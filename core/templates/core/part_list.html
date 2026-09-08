@@ -2,70 +2,67 @@
 {% block title %}Parts{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <hgroup>
-    <h1>Parts</h1>
-    <p>{{ total_parts }} in the bin.</p>
-  </hgroup>
-  <div class="actions">
-    <a href="{% url 'part_create' %}" role="button">Add part</a>
-    <a href="{% url 'part_import' %}" role="button" class="secondary">Import</a>
-    <a href="{% url 'part_duplicates' %}" role="button" class="secondary outline">Duplicates</a>
-    <a href="{% url 'tag_index' %}" role="button" class="secondary outline">Tags</a>
-  </div>
+<hgroup>
+  <h1>Parts</h1>
+  <p>{{ total_parts }} in the bin.</p>
+</hgroup>
+
+<div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+  <form method="get" role="search" style="flex:1; min-width:16rem; margin:0;
+                                         display:flex; gap:.5rem; flex-wrap:wrap;">
+    <input type="search" name="q" value="{{ query }}" autofocus
+           placeholder="Search name, value, package, tags, notes"
+           style="flex:1 1 14rem; margin:0;">
+    <select name="tag" aria-label="Tag" style="width:auto; margin:0;">
+      <option value="">Any tag</option>
+      {% for choice in tag_choices %}
+        <option value="{{ choice }}"{% if choice|lower == filters.tag|lower %} selected{% endif %}>{{ choice }}</option>
+      {% endfor %}
+    </select>
+    <select name="package" aria-label="Package" style="width:auto; margin:0;">
+      <option value="">Any package</option>
+      {% for choice in package_choices %}
+        <option value="{{ choice }}"{% if choice|lower == filters.package|lower %} selected{% endif %}>{{ choice }}</option>
+      {% endfor %}
+    </select>
+    <select name="value" aria-label="Value" style="width:auto; margin:0;">
+      <option value="">Any value</option>
+      {% for choice in value_choices %}
+        <option value="{{ choice }}"{% if choice|lower == filters.value|lower %} selected{% endif %}>{{ choice }}</option>
+      {% endfor %}
+    </select>
+    <label style="margin:0; display:inline-flex; align-items:center; gap:.3rem;">
+      <input type="checkbox" name="available" value="1" style="margin:0;"{% if filters.available %} checked{% endif %}>
+      Available only
+    </label>
+    {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+    <button type="submit" class="secondary btn-sm">Apply</button>
+  </form>
+  <a href="{% url 'part_create' %}" role="button">Add part</a>
+  <a href="{% url 'part_import' %}" role="button" class="secondary">Import</a>
+  <a href="{% url 'part_duplicates' %}" role="button" class="secondary outline">Duplicates</a>
+  <a href="{% url 'tag_index' %}" role="button" class="secondary outline">Tags</a>
 </div>
 
-<form method="get" role="search" class="filters" id="filters">
-  <input type="search" id="q" name="q" value="{{ query }}"
-         aria-label="Search parts" autocomplete="off" spellcheck="false"
-         placeholder="Search name, value, package, tags, notes…">
-  <select name="tag" aria-label="Tag">
-    <option value="">Any tag</option>
-    {% for choice in tag_choices %}
-      <option value="{{ choice }}"{% if choice|lower == filters.tag|lower %} selected{% endif %}>{{ choice }}</option>
-    {% endfor %}
-  </select>
-  <select name="package" aria-label="Package">
-    <option value="">Any package</option>
-    {% for choice in package_choices %}
-      <option value="{{ choice }}"{% if choice|lower == filters.package|lower %} selected{% endif %}>{{ choice }}</option>
-    {% endfor %}
-  </select>
-  <select name="value" aria-label="Value">
-    <option value="">Any value</option>
-    {% for choice in value_choices %}
-      <option value="{{ choice }}"{% if choice|lower == filters.value|lower %} selected{% endif %}>{{ choice }}</option>
-    {% endfor %}
-  </select>
-  <label class="check" for="available">
-    <input type="checkbox" id="available" name="available" value="1"{% if filters.available %} checked{% endif %}>
-    Available only
-  </label>
-  {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
-  <button type="submit" class="secondary">Apply</button>
-</form>
-
 {% if chips %}
-  <p class="chips">
-    <span class="muted">Showing</span>
-    {% for chip in chips %}
-      <a class="tag" href="{{ chip.url }}" title="Remove this filter">{{ chip.label }}</a>
-    {% endfor %}
-    <a href="{% url 'part_list' %}{% if query %}?q={{ query|urlencode }}{% endif %}">Clear filters</a>
-  </p>
+  <p class="muted">Filtered to
+     {% for chip in chips %}<a class="tag" href="{{ chip.url }}" title="Remove this filter">{{ chip.label }} ×</a>{% endfor %}
+     <a href="{% url 'part_list' %}{% if query %}?q={{ query|urlencode }}{% endif %}">clear</a></p>
 {% endif %}
 
 {% if parts %}
 <figure>
-<table class="cards">
+<table>
   <thead>
     <tr>
       {% for column in columns %}
-        <th scope="col"{% if column.numeric %} class="num"{% endif %}
-            aria-sort="{% if column.active %}{% if column.descending %}descending{% else %}ascending{% endif %}{% else %}none{% endif %}">
-          <a href="{{ column.url }}">{{ column.label }}{% if column.active %}<span aria-hidden="true">{% if column.descending %} ↓{% else %} ↑{% endif %}</span>{% endif %}</a>
+        <th scope="col" {% if column.numeric %}class="num"{% endif %}>
+          <a href="{{ column.url }}" style="text-decoration:none">
+            {{ column.label }}{% if column.active %}{% if column.descending %} ↓{% else %} ↑{% endif %}{% endif %}
+          </a>
         </th>
       {% endfor %}
+      <th scope="col">Tags</th>
       <th scope="col"></th>
     </tr>
   </thead>
@@ -74,20 +71,19 @@
     <tr>
       <th scope="row">
         <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
-        {% if part.value or part.package %}<small class="muted sm-only val">{{ part.value }}{% if part.value and part.package %} · {% endif %}{{ part.package }}</small>{% endif %}
       </th>
-      <td class="sm-hide val">{{ part.value|default:"" }}</td>
-      <td class="muted sm-hide val">{{ part.package|default:"" }}</td>
-      <td class="num sm-hide">{{ part.qty_owned }}</td>
-      <td class="num {% if not part.held %}muted{% endif %}" data-label="Held">{{ part.held }}</td>
-      <td class="num {% if part.available == 0 %}zero{% endif %}" data-label="Available">
+      <td>{{ part.value|default:"" }}</td>
+      <td class="muted">{{ part.package|default:"" }}</td>
+      <td class="num">{{ part.qty_owned }}</td>
+      <td class="num {% if part.held %}{% else %}muted{% endif %}">{{ part.held }}</td>
+      <td class="num {% if part.available == 0 %}zero{% endif %}">
         <strong>{{ part.available }}</strong>
       </td>
-      <td class="sm-hide">
+      <td>
         {% for t in part.tag_list %}<a class="tag" href="?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}
       </td>
-      <td class="num sm-hide">
-        <a href="{% url 'part_update' part.pk %}" class="secondary outline btn-sm" role="button">Edit</a>
+      <td style="white-space:nowrap">
+        <a href="{% url 'part_update' part.pk %}" class="btn-sm" role="button">Edit</a>
       </td>
     </tr>
     {% endfor %}
@@ -96,7 +92,7 @@
 </figure>
 
 {% if is_paginated %}
-<nav class="muted" aria-label="Pages">
+<nav>
   {% if page_obj.has_previous %}
     <a href="?{{ page_params }}&page={{ page_obj.previous_page_number }}">Previous</a>
   {% endif %}
@@ -108,36 +104,13 @@
 {% endif %}
 
 {% elif filtering %}
-  <div class="empty">
-    <p>Nothing matches{% if query %} "{{ query }}"{% endif %} with these filters.
-       Try fewer words, or <a href="{% url 'part_list' %}">clear everything</a>.</p>
-  </div>
+  <p class="muted">Nothing matches{% if query %} “{{ query }}”{% endif %} with these filters.
+     <a href="{% url 'part_list' %}">Clear everything</a>.</p>
 {% else %}
-  <div class="empty">
-    <p><strong>No parts yet.</strong> Add the first one, or paste a whole list in.</p>
-    <div class="actions">
-      <a href="{% url 'part_create' %}" role="button">Add the first one</a>
-      <a href="{% url 'part_import' %}" role="button" class="secondary">Import a list</a>
-    </div>
-  </div>
+  <article>
+    <p>No parts yet.</p>
+    <a href="{% url 'part_create' %}" role="button">Add the first one</a>
+    <a href="{% url 'part_import' %}" role="button" class="secondary">Import a list</a>
+  </article>
 {% endif %}
-
-<script>
-  (function () {
-    var form = document.getElementById("filters");
-    if (!form) return;
-    form.querySelectorAll("select, input[type=checkbox]").forEach(function (el) {
-      el.addEventListener("change", function () { form.requestSubmit(); });
-    });
-    document.addEventListener("keydown", function (event) {
-      var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-      if (event.key === "/" && !typing) {
-        event.preventDefault();
-        document.getElementById("q").focus();
-      } else if (event.key === "n" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        window.location.href = "{% url 'part_create' %}";
-      }
-    });
-  })();
-</script>
 {% endblock %}

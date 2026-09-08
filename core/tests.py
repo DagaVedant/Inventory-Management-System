@@ -1912,27 +1912,10 @@ class NavigationTests(BaseCase):
             ("part_list", "Parts"),
             ("project_list", "Projects"),
             ("guide", "Guide"),
+            ("roster", "Roster"),
         ]:
             with self.subTest(label=label):
-                self.assertContains(response, f'href="{reverse(name)}"')
-                self.assertContains(response, f">{label}</a>")
-
-    def test_the_current_section_is_marked_in_the_nav(self):
-        cases = [
-            ("dashboard", "dashboard", "Bench"),
-            ("part_list", "part_list", "Parts"),
-            ("tag_index", "part_list", "Parts"),
-            ("project_list", "project_list", "Projects"),
-            ("guide", "guide", "Guide"),
-        ]
-        for page, link, label in cases:
-            with self.subTest(page=page):
-                response = self.client.get(reverse(page))
-                self.assertContains(
-                    response,
-                    f'<a href="{reverse(link)}" aria-current="page">{label}</a>',
-                )
-                self.assertEqual(response.content.decode().count("aria-current"), 1)
+                self.assertContains(response, f'<a href="{reverse(name)}">{label}</a>')
 
     def test_bench_is_still_the_landing_page_after_login(self):
         client = Client()
@@ -1986,7 +1969,7 @@ class ProjectTableTests(BaseCase):
         ProjectPart.objects.create(project=proj, part=self.part(), qty_allocated=2)
         response = self.client.get(reverse("project_detail", args=[proj.pk]))
         self.assertContains(response, "Remove")
-        self.assertContains(response, 'class="actions"')
+        self.assertContains(response, 'class="row-actions"')
         self.assertNotContains(response, "Soldered")
 
     def test_a_torn_down_project_shows_where_the_parts_went(self):
@@ -2128,7 +2111,6 @@ class FilterTests(BaseCase):
     def test_sorting_by_tags_is_allowed(self):
         _, response = self.names(sort="-tags")
         self.assertEqual(response.context["parts"][0].name, "Capacitor")
-        self.assertContains(response, 'aria-sort="descending"')
 
 
 class RosterTests(BaseCase):

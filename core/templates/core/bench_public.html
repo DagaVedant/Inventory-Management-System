@@ -2,16 +2,14 @@
 {% block title %}{{ bench.user.username }}'s bench{% endblock %}
 
 {% block content %}
-{% if not user.is_authenticated %}
-<p>{% include "core/includes/logo.html" %} <a href="{% url 'dashboard' %}"><strong>Inventory System</strong></a> &middot; <a href="{% url 'login' %}">Log in</a></p>
-{% endif %}
+<hgroup>
+  <h1>{{ bench.user.username }}'s bench</h1>
+  <p>On the <a href="{% url 'roster' %}">roster</a> by choice.</p>
+</hgroup>
 
-<div class="page-head">
-  <hgroup>
-    <h1>{{ bench.user.username }}'s bench</h1>
-    <p>On the <a href="{% url 'roster' %}">roster</a> by choice.</p>
-  </hgroup>
-</div>
+{% if not user.is_authenticated %}
+  <p><a href="{% url 'login' %}" role="button" class="secondary">Log in</a></p>
+{% endif %}
 
 {% include "core/includes/bench_card.html" %}
 {% endblock %}

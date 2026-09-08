@@ -181,7 +181,7 @@ class AddStockForm(forms.Form):
     qty = forms.IntegerField(
         min_value=1,
         label="How many arrived",
-        widget=forms.NumberInput(attrs={"min": 1}),
+        widget=forms.NumberInput(attrs={"min": 1, "style": "width:6em"}),
     )
 
 
@@ -230,7 +230,7 @@ class WantToBuyForm(forms.Form):
     qty = forms.IntegerField(
         min_value=0,
         label="Want to buy",
-        widget=forms.NumberInput(attrs={"min": 0}),
+        widget=forms.NumberInput(attrs={"min": 0, "style": "width:6em"}),
     )
 
 
@@ -337,19 +337,19 @@ class TeardownLineForm(forms.Form):
         min_value=0,
         initial=0,
         label="Returned",
-        widget=forms.NumberInput(attrs={"min": 0}),
+        widget=forms.NumberInput(attrs={"min": 0, "style": "width:5em"}),
     )
     qty_soldered = forms.IntegerField(
         min_value=0,
         initial=0,
         label="Soldered in",
-        widget=forms.NumberInput(attrs={"min": 0}),
+        widget=forms.NumberInput(attrs={"min": 0, "style": "width:5em"}),
     )
     qty_broken = forms.IntegerField(
         min_value=0,
         initial=0,
         label="Broken",
-        widget=forms.NumberInput(attrs={"min": 0}),
+        widget=forms.NumberInput(attrs={"min": 0, "style": "width:5em"}),
     )
 
     def __init__(self, *args, project=None, **kwargs):

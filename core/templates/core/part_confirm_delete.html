@@ -2,23 +2,15 @@
 {% block title %}Delete part{% endblock %}
 
 {% block content %}
-<div class="narrow">
+<h1>Delete {{ object.name }}?</h1>
 
-<div class="page-head">
-  <hgroup>
-    <h1>Delete {{ object.name }}?</h1>
-    <p>You own {{ object.qty_owned }}, and active projects are holding
-       {{ object.compute_held }}. Its history goes with it.</p>
-  </hgroup>
-</div>
+<p>You own {{ object.qty_owned }}, and active projects are holding
+   {{ object.compute_held }}.</p>
+
 
 <form method="post">
   {% csrf_token %}
-  <div class="actions">
-    <button type="submit" class="btn-danger">Delete permanently</button>
-    <a href="{% url 'part_detail' object.pk %}" class="muted">Cancel</a>
-  </div>
+  <button type="submit" class="contrast">Delete</button>
+  <a href="{% url 'part_list' %}" role="button" class="secondary">Cancel</a>
 </form>
-
-</div>
 {% endblock %}

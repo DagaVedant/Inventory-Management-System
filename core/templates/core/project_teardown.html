@@ -2,26 +2,21 @@
 {% block title %}Tear down {{ project.name }}{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <hgroup>
-    <h1>Tear down {{ project.name }}</h1>
-    <p>Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}.
-       Say where each one went. Every line has to add up to what is still held.</p>
-  </hgroup>
-</div>
+<hgroup>
+  <h1>Tear down {{ project.name }}</h1>
+  <p>Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}.</p>
+</hgroup>
 
 <form method="post">
   {% csrf_token %}
   {{ formset.management_form }}
 
   {% if formset.non_form_errors %}
-    <div class="flash error" role="alert">
-      {% for error in formset.non_form_errors %}<p>{{ error }}</p>{% endfor %}
-    </div>
+    <article>{{ formset.non_form_errors }}</article>
   {% endif %}
 
   <figure>
-  <table class="cards stack">
+  <table>
     <thead>
       <tr>
         <th scope="col">Part</th>
@@ -42,18 +37,18 @@
             <br><small class="zero">{{ form.non_field_errors.0 }}</small>
           {% endif %}
         </th>
-        <td class="num muted sm-hide">{% if line %}{{ line.qty_allocated }}{% endif %}</td>
-        <td class="num" data-label="Still held"><strong>{% if line %}{{ line.remaining }}{% endif %}</strong></td>
-        <td class="num" data-label="Returned">{{ form.qty_returned }}</td>
-        <td class="num" data-label="Soldered in">{{ form.qty_soldered }}</td>
-        <td class="num" data-label="Broken">{{ form.qty_broken }}</td>
+        <td class="num muted">{% if line %}{{ line.qty_allocated }}{% endif %}</td>
+        <td class="num"><strong>{% if line %}{{ line.remaining }}{% endif %}</strong></td>
+        <td class="num">{{ form.qty_returned }}</td>
+        <td class="num">{{ form.qty_soldered }}</td>
+        <td class="num">{{ form.qty_broken }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   </figure>
 
-  <div class="actions">
+  <div style="display:flex; gap:.5rem; align-items:center;">
     <button type="submit">Tear down and archive</button>
     <a href="{{ detail_url }}" class="muted">Cancel</a>
   </div>

@@ -2,33 +2,29 @@
 {% block title %}Import parts{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <hgroup>
-    <h1>Import parts</h1>
-    <p>One part per line. Name and quantity are required, the rest is optional.</p>
-  </hgroup>
-</div>
+<hgroup>
+  <h1>Import parts</h1>
+</hgroup>
 
-<form method="post" class="form">
+<article>
+  <pre style="margin:0"><code>name, quantity, value, package, tag, tag, ...</code></pre>
+</article>
+
+<form method="post">
   {% csrf_token %}
 
-  <pre><code>name, quantity, value, package, tag, tag, ...</code></pre>
-
   {% if form.text.errors %}
-    <div class="flash error" role="alert">
-      <p><strong>Nothing was imported.</strong></p>
-      {% for error in form.text.errors %}<p>{{ error }}</p>{% endfor %}
-    </div>
+    <article>
+      <strong>Nothing was imported.</strong>
+      <ul style="margin:.5rem 0 0">
+        {% for error in form.text.errors %}<li>{{ error }}</li>{% endfor %}
+      </ul>
+    </article>
   {% endif %}
 
-  <label for="{{ form.text.id_for_label }}">
-    {{ form.text.label }}
-    {{ form.text }}
-  </label>
+  {{ form.as_p }}
 
-  {% include "core/includes/field.html" with field=form.top_up %}
-
-  <div class="actions">
+  <div style="display:flex; gap:.5rem; align-items:center;">
     <button type="submit">Import</button>
     <a href="{% url 'part_list' %}" class="muted">Cancel</a>
   </div>

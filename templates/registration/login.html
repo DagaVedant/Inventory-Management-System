@@ -2,19 +2,16 @@
 {% block title %}Log in{% endblock %}
 
 {% block content %}
-<div class="auth">
+<div style="max-width:22rem; margin:3rem auto;">
   <h1>Inventory System</h1>
 
   {% if form.errors %}
-    <div class="flash error" role="alert">
-      <p>That username and password don't match. Check both and try again.</p>
-    </div>
+    <article>That username and password don't match.</article>
   {% endif %}
 
-  <form method="post" class="form">
+  <form method="post">
     {% csrf_token %}
-    {% include "core/includes/field.html" with field=form.username %}
-    {% include "core/includes/field.html" with field=form.password %}
+    {{ form.as_p }}
     <button type="submit">Log in</button>
   </form>
 

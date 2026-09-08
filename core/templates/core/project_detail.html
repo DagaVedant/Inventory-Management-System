@@ -2,38 +2,40 @@
 {% block title %}{{ project.name }}{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <hgroup>
-    <h1>{{ project.name }}</h1>
-    <p>
-      {% if project.is_active %}
-        Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}{% if total_short %},
-        and <strong class="zero">{{ total_short }}</strong> short{% endif %}.
-      {% else %}
-        Torn down {{ project.archived_at|date:"j M Y" }}.
-        {{ summary.returned|default:0 }} returned,
-        {{ summary.soldered|default:0 }} soldered in,
-        {{ summary.broken|default:0 }} broken.
-      {% endif %}
-    </p>
-  </hgroup>
-  <div class="actions">
-    {% if project.is_active and lines %}
-      <a href="{% url 'project_teardown' project.pk %}" role="button">Tear down</a>
+<hgroup>
+  <h1>{{ project.name }}</h1>
+  <p>
+    {% if project.is_active %}
+      Holding <strong>{{ total_held }}</strong> part{{ total_held|pluralize }}{% if total_short %},
+      and <strong class="zero">{{ total_short }}</strong> short{% endif %}.
+    {% else %}
+      Torn down {{ project.archived_at|date:"j M Y" }}.
+      {{ summary.returned|default:0 }} returned,
+      {{ summary.soldered|default:0 }} soldered in,
+      {{ summary.broken|default:0 }} broken.
     {% endif %}
-    {% if not project.is_active %}
-      <a href="{% url 'project_reopen' project.pk %}" role="button">Reopen</a>
-    {% endif %}
-    <a href="{% url 'project_update' project.pk %}" role="button" class="secondary">Edit</a>
-  </div>
+  </p>
+</hgroup>
+
+{% if project.description %}<p>{{ project.description }}</p>{% endif %}
+
+<div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+  {% if project.is_active and lines %}
+    <a href="{% url 'project_teardown' project.pk %}" role="button">Tear down</a>
+  {% endif %}
+  {% if not project.is_active %}
+    <a href="{% url 'project_reopen' project.pk %}" role="button">Reopen</a>
+  {% endif %}
+  <a href="{% url 'project_update' project.pk %}" role="button" class="secondary">Edit</a>
+  <a href="{% url 'project_list' %}" role="button" class="secondary outline">All projects</a>
+  <span style="margin-left:auto">
+    <a href="{% url 'project_delete' project.pk %}" class="muted">Delete</a>
+  </span>
 </div>
 
-{% if project.description %}<p class="narrow">{{ project.description }}</p>{% endif %}
-
 <h2>Parts list</h2>
-<p class="muted">{% if project.is_active %}Return a few early, or remove a line that has not been touched.{% else %}Where every part ended up.{% endif %}</p>
-<figure{% if not project.is_active %} class="fit"{% endif %}>
-<table class="cards">
+<figure>
+<table>
   <thead>
     <tr>
       <th scope="col">Part</th>
@@ -55,16 +57,16 @@
     <tr>
       <th scope="row">
         {{ line.part.name }}
-        {% if line.part.value %}<span class="muted val">{{ line.part.value }}</span>{% endif %}
+        {% if line.part.value %}<span class="muted">{{ line.part.value }}</span>{% endif %}
         {% if line.note %}<br><small class="muted">{{ line.note }}</small>{% endif %}
       </th>
-      <td class="num muted sm-hide">{{ line.qty_wanted }}</td>
-      <td class="num sm-hide">{{ line.qty_allocated }}</td>
+      <td class="num muted">{{ line.qty_wanted }}</td>
+      <td class="num">{{ line.qty_allocated }}</td>
       {% if project.is_active %}
-        <td class="num {% if line.short %}zero{% else %}muted{% endif %}" data-label="Short">{{ line.short }}</td>
-        <td class="num" data-label="Held"><strong>{{ line.remaining }}</strong></td>
-        <td class="sm-full">
-          <div class="actions">
+        <td class="num {% if line.short %}zero{% else %}muted{% endif %}">{{ line.short }}</td>
+        <td class="num"><strong>{{ line.remaining }}</strong></td>
+        <td>
+          <div class="row-actions">
             {% if line.remaining %}
               <form method="post" action="{% url 'line_return' project.pk line.pk %}">
                 {% csrf_token %}
@@ -82,13 +84,13 @@
           </div>
         </td>
       {% else %}
-        <td class="num muted" data-label="Returned">{{ line.qty_returned }}</td>
-        <td class="num" data-label="Soldered">{{ line.qty_soldered }}</td>
-        <td class="num" data-label="Broken">{{ line.qty_broken }}</td>
+        <td class="num muted">{{ line.qty_returned }}</td>
+        <td class="num muted">{{ line.qty_soldered }}</td>
+        <td class="num muted">{{ line.qty_broken }}</td>
       {% endif %}
     </tr>
     {% empty %}
-    <tr><td colspan="6" class="muted">Nothing allocated yet. Add one below.</td></tr>
+    <tr><td colspan="6" class="muted">Nothing allocated yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -96,22 +98,10 @@
 
 {% if project.is_active %}
 <h2>Add a part</h2>
-<p class="muted">Asks for what you need and takes what is available. The rest goes on the shopping list.</p>
-<form method="post" class="form">
+<form method="post">
   {% csrf_token %}
-  {% include "core/includes/form_errors.html" %}
-  <div class="grid">
-    <div>{% include "core/includes/field.html" with field=form.part %}</div>
-    <div>{% include "core/includes/field.html" with field=form.qty_wanted %}</div>
-    <div>{% include "core/includes/field.html" with field=form.note %}</div>
-  </div>
-  <div class="actions">
-    <button type="submit">Allocate</button>
-  </div>
+  {{ form.as_p }}
+  <button type="submit">Allocate</button>
 </form>
 {% endif %}
-
-<p class="danger-zone">
-  <a href="{% url 'project_delete' project.pk %}">Delete this project</a>
-</p>
 {% endblock %}

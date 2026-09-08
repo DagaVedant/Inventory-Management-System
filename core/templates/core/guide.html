@@ -2,18 +2,15 @@
 {% block title %}How it works{% endblock %}
 
 {% block content %}
-<div class="narrow">
+<div style="max-width:44rem">
 
-<div class="page-head">
-  <hgroup>
-    <h1>How it works</h1>
-    <p>A project borrows parts and holds them until you tear it down. Most come
-       back. The ones soldered in or broken do not.</p>
-  </hgroup>
-</div>
+<h1>How it works</h1>
+
+<p>A project borrows parts and holds them until you tear it down. Most come
+   back. The ones soldered in or broken do not.</p>
 
 <h2>Three numbers</h2>
-<figure class="fit">
+<figure>
 <table>
   <tbody>
     <tr>
@@ -33,7 +30,7 @@
 </figure>
 
 <h2>Teardown</h2>
-<figure class="fit">
+<figure>
 <table>
   <tbody>
     <tr>
@@ -64,7 +61,7 @@
 DHT22, 4</code></pre>
 
 <h2>Where things live</h2>
-<figure class="fit">
+<figure>
 <table>
   <tbody>
     <tr>
@@ -98,10 +95,10 @@ DHT22, 4</code></pre>
 </figure>
 
 {% if not user.is_authenticated %}
-  <div class="actions">
+  <p style="margin-top:2rem">
     <a href="{% url 'login' %}" role="button">Log in</a>
     <a href="{% url 'signup' %}" role="button" class="secondary">Create an account</a>
-  </div>
+  </p>
 {% endif %}
 
 </div>
