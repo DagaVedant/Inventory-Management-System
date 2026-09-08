@@ -33,7 +33,6 @@ def tag_filter(tag):
 
 
 def match_key(name, value=""):
-
     def clean(text):
         text = unicodedata.normalize("NFKD", text or "").casefold()
         text = text.replace("μ", "u").replace("µ", "u")
