@@ -2,38 +2,54 @@
 {% block title %}Reopen {{ project.name }}{% endblock %}
 
 {% block content %}
-<h1>Put {{ project.name }} back on the bench?</h1>
-<p>Torn down {{ project.archived_at|date:"j M Y" }}.</p>
+<div class="narrow">
 
-<p>This undoes the teardown. <b>{{ coming_back }}</b>
-   part{{ coming_back|pluralize }} recorded as soldered in or broken
-   {{ coming_back|pluralize:"comes,come" }} back into your inventory, and the
-   project starts holding its parts again.</p>
+<div class="page-head">
+  <hgroup>
+    <h1>Put {{ project.name }} back on the bench?</h1>
+    <p>Torn down {{ project.archived_at|date:"j M Y" }}.</p>
+  </hgroup>
+</div>
 
+<div class="flash">
+  <p>This undoes the teardown. <strong>{{ coming_back }}</strong>
+  part{{ coming_back|pluralize }} recorded as soldered in or broken
+  {{ coming_back|pluralize:"comes,come" }} back into your inventory, and the
+  project starts holding its parts again.</p>
+</div>
+
+<figure class="fit">
 <table>
-  <tr>
-    <th>Part</th>
-    <th>Soldered</th>
-    <th>Broken</th>
-    <th>Back to stock</th>
-  </tr>
-  {% for line in lines %}
-  <tr>
-    <td>{{ line.part }}</td>
-    <td>{{ line.qty_soldered }}</td>
-    <td>{{ line.qty_broken }}</td>
-    <td><b>{{ line.lost }}</b></td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="4">No quantities change.</td></tr>
-  {% endfor %}
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col" class="num">Soldered</th>
+      <th scope="col" class="num">Broken</th>
+      <th scope="col" class="num">Back to stock</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in lines %}
+    <tr>
+      <th scope="row">{{ line.part }}</th>
+      <td class="num muted">{{ line.qty_soldered }}</td>
+      <td class="num muted">{{ line.qty_broken }}</td>
+      <td class="num"><strong>{{ line.lost }}</strong></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="muted">No quantities change.</td></tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 
 <form method="post">
   {% csrf_token %}
-  <p>
+  <div class="actions">
     <button type="submit">Reopen</button>
-    <a href="{{ detail_url }}">Cancel</a>
-  </p>
+    <a href="{{ detail_url }}" class="muted">Cancel</a>
+  </div>
 </form>
+
+</div>
 {% endblock %}

@@ -2,31 +2,47 @@
 {% block title %}Tags{% endblock %}
 
 {% block content %}
-<h1>Tags</h1>
-<p>{{ tags|length }} in use. Click one to see its parts.</p>
+<div class="page-head">
+  <hgroup>
+    <h1>Tags</h1>
+    <p>{{ tags|length }} in use. Click one to see its parts.</p>
+  </hgroup>
+</div>
 
+<figure class="fit narrow">
 <table>
-  <tr>
-    <th>Tag</th>
-    <th>Parts</th>
-  </tr>
-  {% for tag, count in tags %}
-  <tr>
-    <td><a href="{% url 'part_list' %}?tag={{ tag|urlencode }}">{{ tag }}</a></td>
-    <td>{{ count }}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="2">No tags yet. Add some on a part's edit page.</td></tr>
-  {% endfor %}
+  <thead>
+    <tr>
+      <th scope="col">Tag</th>
+      <th scope="col" class="num">Parts</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for tag, count in tags %}
+    <tr>
+      <th scope="row"><a href="{% url 'part_list' %}?tag={{ tag|urlencode }}">{{ tag }}</a></th>
+      <td class="num">{{ count }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="2" class="muted">No tags yet. Add some on a part's edit page.</td></tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 
 {% if tags %}
 <h2>Rename or remove</h2>
-<p><small>Applies to every part carrying the tag.</small></p>
-<form method="post">
+<p class="muted">Applies to every part carrying the tag.</p>
+<form method="post" class="form">
   {% csrf_token %}
-  {{ form.as_p }}
-  <p><button type="submit">Apply</button></p>
+  {% include "core/includes/form_errors.html" %}
+  <div class="grid">
+    <div>{% include "core/includes/field.html" with field=form.old %}</div>
+    <div>{% include "core/includes/field.html" with field=form.new %}</div>
+  </div>
+  <div class="actions">
+    <button type="submit">Apply</button>
+  </div>
 </form>
 {% endif %}
 {% endblock %}

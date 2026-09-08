@@ -2,22 +2,29 @@
 {% block title %}Settings{% endblock %}
 
 {% block content %}
-<h1>Settings</h1>
-<p>Signed in as <b>{{ user.username }}</b>.</p>
+<div class="page-head">
+  <hgroup>
+    <h1>Settings</h1>
+    <p>Signed in as <strong>{{ user.username }}</strong>.</p>
+  </hgroup>
+</div>
 
 <h2>Public roster</h2>
-<p>Off by default. Nothing about your bench is visible to anyone else until you tick this.</p>
+<p class="muted">Off by default. Nothing about your bench is visible to anyone else until you tick this.</p>
 
-<form method="post">
+<form method="post" class="form">
   {% csrf_token %}
-  {{ form.as_p }}
-  <p><small>When it is on, the <a href="{% url 'roster' %}">roster</a> and
+  {% include "core/includes/form_errors.html" %}
+  {% include "core/includes/field.html" with field=form.on_roster %}
+  <p class="muted"><small>When it is on, the <a href="{% url 'roster' %}">roster</a> and
      <a href="{% url 'bench_public' user.username %}">your public page</a> show exactly
      this, and nothing else: no notes, no packages, no projects by name.</small></p>
-  <p><button type="submit">Save</button></p>
+  <div class="actions">
+    <button type="submit">Save</button>
+  </div>
 </form>
 
 <h2>What the roster would show</h2>
-<p><small>A preview built from your bench right now.</small></p>
+<p class="muted">A preview built from your bench right now.</p>
 {% include "core/includes/bench_card.html" %}
 {% endblock %}

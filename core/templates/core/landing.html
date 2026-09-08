@@ -2,30 +2,25 @@
 {% block title %}Parts inventory for a hobby bench{% endblock %}
 
 {% block content %}
-<header>
-  <p>{% include "core/includes/logo.html" %} <strong>Inventory System</strong></p>
-  <nav>
-    <a href="{% url 'login' %}">Log in</a>
-    <a href="{% url 'signup' %}">Create an account</a>
-    <a href="{% url 'guide' %}">How it works</a>
-    <a href="{% url 'roster' %}">Roster</a>
-  </nav>
-  <hr>
-</header>
+<p>{% include "core/includes/logo.html" %} <strong>Inventory System</strong> &middot; <a href="{% url 'login' %}">Log in</a></p>
 
 <h1>Know what is on the shelf and what is inside a build.</h1>
 
 <p>An electronics parts inventory built for a bench, not a warehouse.
-   Parts do not get used up here. A project <b>holds</b> them, and
+   Parts do not get used up here. A project <strong>holds</strong> them, and
    when you tear it down most of them come back.</p>
 
-<p><a href="{% url 'signup' %}">Create an account</a>. A username and a password, it asks for nothing else.</p>
+<p>
+  <a href="{% url 'signup' %}" role="button">Create an account</a>
+  <a href="{% url 'guide' %}" role="button" class="secondary outline">How it works</a>
+</p>
+<p><small>A username and a password. It asks for nothing else.</small></p>
 
 <h2>Three numbers per part</h2>
 <ul>
-  <li><b>Owned</b>: everything you have, loose or inside a live build.</li>
-  <li><b>Held</b>: sitting inside a project right now.</li>
-  <li><b>Available</b>: owned minus held. The one you check before you start.</li>
+  <li><strong>Owned</strong>: everything you have, loose or inside a live build.</li>
+  <li><strong>Held</strong>: sitting inside a project right now.</li>
+  <li><strong>Available</strong>: owned minus held. The one you check before you start.</li>
 </ul>
 
 <h2>The bench, with two builds live</h2>
@@ -50,15 +45,20 @@
 
 <h2>What it does</h2>
 <ul>
-  <li><b>Teardown</b>: say what became of every part, returned, soldered in, or broken. Only the last two leave your inventory.</li>
-  <li><b>Reopen</b>: a teardown is reversible in two clicks.</li>
-  <li><b>Shopping list</b>: what live builds could not get, plus anything you flagged, totalled per part. Download it as CSV or plain text.</li>
-  <li><b>History</b>: every quantity change logged with the balance it produced.</li>
-  <li><b>Duplicates</b>: 10k and 10k&#937; are one resistor. It spots them and merges them. 4.7k and 47k it leaves alone.</li>
-  <li><b>Paste import</b>: a whole bin at once, one part per line.</li>
-  <li><b>Tags</b>: filter by one, autocomplete so typos do not split a group, rename across every part.</li>
+  <li><strong>Teardown</strong>: say what became of every part, returned, soldered in, or broken. Only the last two leave your inventory.</li>
+  <li><strong>Reopen</strong>: a teardown is reversible in two clicks.</li>
+  <li><strong>Shopping list</strong>: what live builds could not get, plus anything you flagged, totalled per part. Download it as CSV or plain text.</li>
+  <li><strong>History</strong>: every quantity change logged with the balance it produced.</li>
+  <li><strong>Duplicates</strong>: 10k and 10k&#937; are one resistor. It spots them and merges them. 4.7k and 47k it leaves alone.</li>
+  <li><strong>Paste import</strong>: a whole bin at once, one part per line.</li>
+  <li><strong>Tags</strong>: filter by one, autocomplete so typos do not split a group, rename across every part.</li>
 </ul>
 
-<hr>
-<p><small>Open source. <a href="https://github.com/DagaVedant/Inventory-Management-System">Read the code on GitHub</a>.</small></p>
+<p>
+  <a href="{% url 'signup' %}" role="button">Create an account</a>
+  <a href="{% url 'login' %}" role="button" class="secondary">Log in</a>
+</p>
+
+<p><small>Open source. <a href="https://github.com/DagaVedant/Inventory-Management-System">Read the code on GitHub</a>.
+   Curious who else keeps a bin? <a href="{% url 'roster' %}">See the roster</a>.</small></p>
 {% endblock %}

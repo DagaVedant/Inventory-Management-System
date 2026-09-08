@@ -3,38 +3,50 @@
 
 {% block content %}
 {% if not user.is_authenticated %}
-<header>
-  <p>{% include "core/includes/logo.html" %} <a href="{% url 'dashboard' %}"><strong>Inventory System</strong></a></p>
-  <nav><a href="{% url 'login' %}">Log in</a> <a href="{% url 'signup' %}">Create an account</a></nav>
-  <hr>
-</header>
+<p>{% include "core/includes/logo.html" %} <a href="{% url 'dashboard' %}"><strong>Inventory System</strong></a> &middot; <a href="{% url 'login' %}">Log in</a></p>
 {% endif %}
 
-<h1>Roster</h1>
-<p>Benches their owners chose to show, sorted by how many distinct parts they keep.
-   {% if user.is_authenticated %}<a href="{% url 'settings' %}">Show mine</a>{% endif %}</p>
+<div class="page-head">
+  <hgroup>
+    <h1>Roster</h1>
+    <p>Benches their owners chose to show. Sorted by how many distinct parts they keep.</p>
+  </hgroup>
+  {% if user.is_authenticated %}
+  <div class="actions">
+    <a href="{% url 'settings' %}" role="button" class="secondary outline">Show mine</a>
+  </div>
+  {% endif %}
+</div>
 
 {% if rows %}
-<table>
-  <tr>
-    <th>Bench</th>
-    <th>Parts</th>
-    <th>Units</th>
-    <th>Live builds</th>
-    <th>Busiest tags</th>
-  </tr>
-  {% for row in rows %}
-  <tr>
-    <td><a href="{% url 'bench_public' row.user.username %}">{{ row.user.username }}</a></td>
-    <td>{{ row.part_count }}</td>
-    <td>{{ row.unit_count }}</td>
-    <td>{{ row.live_builds }}</td>
-    <td>{% for tag, count in row.tags|slice:":3" %}{{ tag }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
-  </tr>
-  {% endfor %}
+<figure class="fit">
+<table class="cards">
+  <thead>
+    <tr>
+      <th scope="col">Bench</th>
+      <th scope="col" class="num">Parts</th>
+      <th scope="col" class="num">Units</th>
+      <th scope="col" class="num">Live builds</th>
+      <th scope="col">Busiest tags</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <th scope="row"><a href="{% url 'bench_public' row.user.username %}">{{ row.user.username }}</a></th>
+      <td class="num" data-label="Parts">{{ row.part_count }}</td>
+      <td class="num" data-label="Units">{{ row.unit_count }}</td>
+      <td class="num sm-hide">{{ row.live_builds }}</td>
+      <td class="sm-hide">{% for tag, count in row.tags|slice:":3" %}<span class="tag">{{ tag }}</span>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 {% else %}
-  <p><strong>Nobody is on the roster yet.</strong>
-     {% if user.is_authenticated %}Be the first from <a href="{% url 'settings' %}">your settings</a>.{% else %}<a href="{% url 'signup' %}">Create an account</a> and opt in from your settings.{% endif %}</p>
+  <div class="empty">
+    <p><strong>Nobody is on the roster yet.</strong>
+       {% if user.is_authenticated %}Be the first from <a href="{% url 'settings' %}">your settings</a>.{% else %}<a href="{% url 'signup' %}">Create an account</a> and opt in from your settings.{% endif %}</p>
+  </div>
 {% endif %}
 {% endblock %}

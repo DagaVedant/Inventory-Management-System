@@ -2,131 +2,191 @@
 {% block title %}{{ part.name }}{% endblock %}
 
 {% block content %}
-<h1>{{ part.name }}</h1>
-<p>
-  {% if part.value %}<code>{{ part.value }}</code>{% endif %}
-  {% if part.package %}&middot; {{ part.package }}{% endif %}
-  {% if part.voltage %}&middot; {{ part.voltage }}{% endif %}
-  {% if part.pin_count %}&middot; {{ part.pin_count }} pins{% endif %}
-  {% if part.tag_list %}&middot; {% for t in part.tag_list %}<a href="{% url 'part_list' %}?tag={{ t|urlencode }}">{{ t }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
-</p>
-<p><a href="{% url 'part_update' part.pk %}">Edit</a> &middot;
-   <a href="{% url 'part_merge' part.pk %}">Merge away</a></p>
+<div class="page-head">
+  <hgroup>
+    <h1>{{ part.name }}</h1>
+    <p>
+      {% if part.value %}<span class="val">{{ part.value }}</span>{% endif %}
+      {% if part.package %}· <span class="val">{{ part.package }}</span>{% endif %}
+      {% if part.voltage %}· <span class="val">{{ part.voltage }}</span>{% endif %}
+      {% if part.pin_count %}· {{ part.pin_count }} pins{% endif %}
+      {% if part.tag_list %}
+        <br>{% for t in part.tag_list %}<a class="tag" href="{% url 'part_list' %}?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}
+      {% endif %}
+    </p>
+  </hgroup>
+  <div class="actions">
+    <a href="{% url 'part_update' part.pk %}" role="button" class="secondary">Edit</a>
+    <a href="{% url 'part_merge' part.pk %}" role="button" class="secondary outline">Merge away</a>
+  </div>
+</div>
 
 {% if twins %}
-  <p><mark>This looks like the same component as
-  {% for twin in twins %}<a href="{% url 'part_detail' twin.pk %}">{{ twin }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.
-  <a href="{% url 'part_merge' part.pk %}">Merge them</a>.</mark></p>
+  <div class="flash" role="status">
+    <p><strong>This looks like the same component as
+    {% for twin in twins %}<a href="{% url 'part_detail' twin.pk %}">{{ twin }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</strong>
+    <a href="{% url 'part_merge' part.pk %}">Merge them</a>.</p>
+  </div>
 {% endif %}
 
-<p><b>{{ part.qty_owned }}</b> owned &middot;
-   <b>{{ part.held }}</b> held by projects &middot;
-   <b>{{ part.available }}</b> available</p>
+<div class="stats">
+  <div><strong>{{ part.qty_owned }}</strong><span>owned</span></div>
+  <div><strong>{{ part.held }}</strong><span>held by projects</span></div>
+  <div><strong{% if part.available == 0 %} class="zero"{% endif %}>{{ part.available }}</strong><span>available</span></div>
+</div>
 
-<form method="post" action="{% url 'part_add_stock' part.pk %}">
-  {% csrf_token %}
-  <p><label style="display:inline">{{ add_stock_form.qty.label }} {{ add_stock_form.qty }}</label>
-     <button type="submit">Add stock</button></p>
-</form>
-<form method="post" action="{% url 'part_want' part.pk %}">
-  {% csrf_token %}
-  <p><label style="display:inline">{{ want_form.qty.label }} {{ want_form.qty }}</label>
-     <button type="submit">Save</button></p>
-</form>
+<div class="actions">
+  <form method="post" action="{% url 'part_add_stock' part.pk %}" class="inline">
+    {% csrf_token %}
+    <label for="{{ add_stock_form.qty.id_for_label }}">
+      {{ add_stock_form.qty.label }}
+      {{ add_stock_form.qty }}
+    </label>
+    <button type="submit">Add stock</button>
+  </form>
+
+  <form method="post" action="{% url 'part_want' part.pk %}" class="inline">
+    {% csrf_token %}
+    <label for="{{ want_form.qty.id_for_label }}">
+      {{ want_form.qty.label }}
+      {{ want_form.qty }}
+    </label>
+    <button type="submit" class="secondary">Save</button>
+  </form>
+</div>
 
 <h2>Held right now</h2>
+<p class="muted">Live projects holding some of these.</p>
+<figure class="fit">
 <table>
-  <tr>
-    <th>Project</th>
-    <th>Allocated</th>
-    <th>Still held</th>
-  </tr>
-  {% for line in holding %}
-  <tr>
-    <td><a href="{% url 'project_detail' line.project.pk %}">{{ line.project.name }}</a></td>
-    <td>{{ line.qty_allocated }}</td>
-    <td><b>{{ line.remaining }}</b></td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="3">Nothing is holding any.</td></tr>
-  {% endfor %}
+  <thead>
+    <tr>
+      <th scope="col">Project</th>
+      <th scope="col" class="num">Allocated</th>
+      <th scope="col" class="num">Still held</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in holding %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'project_detail' line.project.pk %}">{{ line.project.name }}</a>
+      </th>
+      <td class="num">{{ line.qty_allocated }}</td>
+      <td class="num"><strong>{{ line.remaining }}</strong></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="3" class="muted">Nothing is holding any.</td></tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 
 <h2>What's happened to it</h2>
+{% if total_lost %}<p class="muted">Lost to builds: <strong>{{ total_lost }}</strong></p>{% endif %}
 {% if history %}
+<figure class="fit">
 <table>
-  <tr>
-    <th>Project</th>
-    <th>Torn down</th>
-    <th>Used</th>
-    <th>Returned</th>
-    <th>Soldered</th>
-    <th>Broken</th>
-  </tr>
-  {% for line in history %}
-  <tr>
-    <td><a href="{% url 'project_detail' line.project.pk %}">{{ line.project.name }}</a></td>
-    <td>{{ line.project.archived_at|date:"j M Y" }}</td>
-    <td>{{ line.qty_allocated }}</td>
-    <td>{{ line.qty_returned }}</td>
-    <td>{{ line.qty_soldered }}</td>
-    <td>{{ line.qty_broken }}</td>
-  </tr>
-  {% endfor %}
+  <thead>
+    <tr>
+      <th scope="col">Project</th>
+      <th scope="col">Torn down</th>
+      <th scope="col" class="num">Used</th>
+      <th scope="col" class="num">Returned</th>
+      <th scope="col" class="num">Soldered</th>
+      <th scope="col" class="num">Broken</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in history %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'project_detail' line.project.pk %}">{{ line.project.name }}</a>
+      </th>
+      <td class="muted">{{ line.project.archived_at|date:"j M Y" }}</td>
+      <td class="num">{{ line.qty_allocated }}</td>
+      <td class="num muted">{{ line.qty_returned }}</td>
+      <td class="num">{{ line.qty_soldered }}</td>
+      <td class="num">{{ line.qty_broken }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
-{% if total_lost %}<p>Lost to builds: <b>{{ total_lost }}</b></p>{% endif %}
+</figure>
 {% else %}
-<p>No finished builds have used it yet.</p>
+  <p class="muted">No finished builds have used it yet.</p>
 {% endif %}
 
 <h2>History</h2>
+{% if movement_count > 25 %}<p class="muted">Showing the last 25 of {{ movement_count }}.</p>{% endif %}
 {% if movements %}
+<figure class="fit">
 <table>
-  <tr>
-    <th>When</th>
-    <th>What</th>
-    <th>Change</th>
-    <th>Left</th>
-  </tr>
-  {% for movement in movements %}
-  <tr>
-    <td>{{ movement.created_at|date:"j M Y, H:i" }}</td>
-    <td>{{ movement.get_reason_display }}
-        {% if movement.project %}<a href="{% url 'project_detail' movement.project.pk %}">{{ movement.project.name }}</a>{% endif %}
-        {% if movement.note %}<br><small>{{ movement.note }}</small>{% endif %}</td>
-    <td>{% if movement.delta > 0 %}+{% endif %}{{ movement.delta }}</td>
-    <td>{{ movement.balance_after }}</td>
-  </tr>
-  {% endfor %}
+  <thead>
+    <tr>
+      <th scope="col">When</th>
+      <th scope="col">What</th>
+      <th scope="col" class="num">Change</th>
+      <th scope="col" class="num">Left</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for movement in movements %}
+    <tr>
+      <td class="muted">{{ movement.created_at|date:"j M Y, H:i" }}</td>
+      <td>
+        {{ movement.get_reason_display }}
+        {% if movement.project %}
+          <a href="{% url 'project_detail' movement.project.pk %}">{{ movement.project.name }}</a>
+        {% endif %}
+        {% if movement.note %}<br><small class="muted">{{ movement.note }}</small>{% endif %}
+      </td>
+      <td class="num {% if movement.delta < 0 %}zero{% endif %}">
+        {% if movement.delta > 0 %}+{% endif %}{{ movement.delta }}
+      </td>
+      <td class="num muted">{{ movement.balance_after }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
-{% if movement_count > 25 %}<p><small>Showing the last 25 of {{ movement_count }}.</small></p>{% endif %}
+</figure>
 {% else %}
-<p>Nothing recorded yet.</p>
+  <p class="muted">Nothing recorded yet.</p>
 {% endif %}
 
 {% if similar %}
 <h2>Might do instead</h2>
+<p class="muted">Other parts sharing a tag.</p>
+<figure class="fit">
 <table>
-  <tr>
-    <th>Part</th>
-    <th>Shares</th>
-    <th>Available</th>
-  </tr>
-  {% for other in similar %}
-  <tr>
-    <td><a href="{% url 'part_detail' other.pk %}">{{ other }}</a></td>
-    <td>{{ other.tag_list|join:", " }}</td>
-    <td><b>{{ other.available }}</b></td>
-  </tr>
-  {% endfor %}
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col">Shares</th>
+      <th scope="col" class="num">Available</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for other in similar %}
+    <tr>
+      <th scope="row"><a href="{% url 'part_detail' other.pk %}">{{ other }}</a></th>
+      <td>{% for t in other.tag_list %}<span class="tag">{{ t }}</span>{% endfor %}</td>
+      <td class="num {% if other.available == 0 %}zero{% endif %}">
+        <strong>{{ other.available }}</strong>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 {% endif %}
 
 {% if part.notes %}
-<h2>Notes</h2>
-{{ part.notes|linebreaks }}
+  <h2>Notes</h2>
+  <div class="narrow">{{ part.notes|linebreaks }}</div>
 {% endif %}
 
-<hr>
-<p><small><a href="{% url 'part_delete' part.pk %}">Delete this part</a></small></p>
+<p class="danger-zone">
+  <a href="{% url 'part_delete' part.pk %}">Delete this part</a>
+</p>
 {% endblock %}

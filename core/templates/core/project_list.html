@@ -2,47 +2,76 @@
 {% block title %}Projects{% endblock %}
 
 {% block content %}
-<h1>Projects</h1>
-<p>{{ active|length }} on the bench, {{ archived|length }} torn down.
-   <a href="{% url 'project_create' %}">New project</a></p>
+<div class="page-head">
+  <hgroup>
+    <h1>Projects</h1>
+    <p>{{ active|length }} on the bench · {{ archived|length }} torn down</p>
+  </hgroup>
+  <div class="actions">
+    <a href="{% url 'project_create' %}" role="button">New project</a>
+  </div>
+</div>
 
 <h2>On the bench</h2>
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Parts</th>
-    <th>Started</th>
-    <th></th>
-  </tr>
-  {% for project in active %}
-  <tr>
-    <td><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></td>
-    <td>{{ project.n_lines }}</td>
-    <td>{{ project.created_at|date:"j M Y" }}</td>
-    <td>{% if project.n_lines %}<a href="{% url 'project_teardown' project.pk %}">Tear down</a>{% endif %}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="4">Nothing on the bench. <a href="{% url 'project_create' %}">Start a project</a>.</td></tr>
-  {% endfor %}
+<p class="muted">Holding parts right now.</p>
+<figure class="fit">
+<table class="cards">
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col" class="num">Parts</th>
+      <th scope="col">Started</th>
+      <th scope="col"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for project in active %}
+    <tr>
+      <th scope="row"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></th>
+      <td class="num" data-label="Parts">{{ project.n_lines }}</td>
+      <td class="muted" data-label="Started">{{ project.created_at|date:"j M Y" }}</td>
+      <td class="num sm-hide">
+        {% if project.n_lines %}
+          <a href="{% url 'project_teardown' project.pk %}" role="button"
+             class="secondary outline btn-sm">Tear down</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="muted">Nothing on the bench.
+        <a href="{% url 'project_create' %}">Start a project</a>.</td></tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 
 <h2>Torn down</h2>
-<table>
-  <tr>
-    <th>Name</th>
-    <th>Parts</th>
-    <th>Torn down</th>
-    <th></th>
-  </tr>
-  {% for project in archived %}
-  <tr>
-    <td><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></td>
-    <td>{{ project.n_lines }}</td>
-    <td>{{ project.archived_at|date:"j M Y" }}</td>
-    <td><a href="{% url 'project_reopen' project.pk %}">Reopen</a></td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="4">Nothing torn down yet.</td></tr>
-  {% endfor %}
+<p class="muted">Finished builds. Reopen one to undo its teardown.</p>
+<figure class="fit">
+<table class="cards">
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col" class="num">Parts</th>
+      <th scope="col">Torn down</th>
+      <th scope="col"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for project in archived %}
+    <tr>
+      <th scope="row"><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></th>
+      <td class="num" data-label="Parts">{{ project.n_lines }}</td>
+      <td class="muted" data-label="Torn down">{{ project.archived_at|date:"j M Y" }}</td>
+      <td class="num sm-hide">
+        <a href="{% url 'project_reopen' project.pk %}" role="button"
+           class="secondary outline btn-sm">Reopen</a>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="muted">Nothing torn down yet.</td></tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 {% endblock %}

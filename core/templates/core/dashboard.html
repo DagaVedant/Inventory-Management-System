@@ -2,84 +2,141 @@
 {% block title %}Bench{% endblock %}
 
 {% block content %}
-<h1>Bench</h1>
-<p>{{ total_parts }} part{{ total_parts|pluralize }}, {{ active|length }} on the bench,
-   {{ archived_count }} torn down.
-   <a href="{% url 'part_create' %}">Add part</a> &middot;
-   <a href="{% url 'project_create' %}">New project</a></p>
+<div class="page-head">
+  <hgroup>
+    <h1>Bench</h1>
+    <p>{{ total_parts }} part{{ total_parts|pluralize }} ·
+       {{ active|length }} on the bench ·
+       {{ archived_count }} torn down</p>
+  </hgroup>
+  <div class="actions">
+    <a href="{% url 'part_create' %}" role="button" class="secondary">Add part</a>
+    <a href="{% url 'project_create' %}" role="button" class="secondary outline">New project</a>
+  </div>
+</div>
 
 {% if not total_parts %}
-  <p><strong>Nothing in here yet.</strong>
-     <a href="{% url 'part_import' %}">Paste your bin in</a> or
-     <a href="{% url 'part_create' %}">add one part at a time</a>.</p>
+  <div class="empty">
+    <p><strong>Nothing in here yet.</strong> Paste a whole bin in at once, or add
+       parts one at a time.</p>
+    <div class="actions">
+      <a href="{% url 'part_import' %}" role="button">Paste your bin in</a>
+      <a href="{% url 'part_create' %}" role="button" class="secondary">Add one at a time</a>
+    </div>
+  </div>
 {% endif %}
 
 <h2>On the bench</h2>
-<table>
-  <tr>
-    <th>Project</th>
-    <th>Parts</th>
-    <th>Held</th>
-    <th>Short</th>
-    <th></th>
-  </tr>
-  {% for project in active %}
-  <tr>
-    <td><a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a></td>
-    <td>{{ project.n_lines }}</td>
-    <td>{{ project.held_count }}</td>
-    <td>{% if project.short_count %}<b>{{ project.short_count }}</b>{% else %}0{% endif %}</td>
-    <td>{% if project.n_lines %}<a href="{% url 'project_teardown' project.pk %}">Tear down</a>{% endif %}</td>
-  </tr>
-  {% empty %}
-  <tr><td colspan="5">Nothing on the bench. <a href="{% url 'project_create' %}">Start a project</a>.</td></tr>
-  {% endfor %}
+<p class="muted">Live builds and what they are holding.</p>
+<figure class="fit">
+<table class="cards">
+  <thead>
+    <tr>
+      <th scope="col">Project</th>
+      <th scope="col" class="num">Parts</th>
+      <th scope="col" class="num">Held</th>
+      <th scope="col" class="num">Short</th>
+      <th scope="col"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for project in active %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'project_detail' project.pk %}">{{ project.name }}</a>
+      </th>
+      <td class="num muted sm-hide">{{ project.n_lines }}</td>
+      <td class="num" data-label="Held">{{ project.held_count }}</td>
+      <td class="num {% if project.short_count %}zero{% else %}muted{% endif %}" data-label="Short">
+        {{ project.short_count }}
+      </td>
+      <td class="num sm-hide">
+        {% if project.n_lines %}
+          <a href="{% url 'project_teardown' project.pk %}" role="button"
+             class="secondary outline btn-sm">Tear down</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="5" class="muted">
+        Nothing on the bench.
+        <a href="{% url 'project_create' %}">Start a project</a>.
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 
 <h2>Shopping list</h2>
 {% if shortfall %}
-<p>{{ total_short }} part{{ total_short|pluralize }} to buy.
-   <a href="{% url 'shopping_list_csv' %}">Download CSV</a> &middot;
-   <a href="{% url 'shopping_list_txt' %}">Plain text</a></p>
-<table>
-  <tr>
-    <th>Part</th>
-    <th>For builds</th>
-    <th>Wanted</th>
-    <th>Total</th>
-  </tr>
-  {% for row in shortfall %}
-  <tr>
-    <td><a href="{% url 'part_detail' row.part_id %}">{{ row.name }}</a>{% if row.value %} <code>{{ row.value }}</code>{% endif %}</td>
-    <td>{{ row.from_builds }}</td>
-    <td>{{ row.wanted }}</td>
-    <td><b>{{ row.total }}</b></td>
-  </tr>
-  {% endfor %}
-</table>
-<p><small><b>For builds</b> is what live projects asked for and could not get.
-   <b>Wanted</b> is what you put on the list yourself, from a part's own page.</small></p>
+  <p class="muted">{{ total_short }} part{{ total_short|pluralize }} to buy.
+     <a href="{% url 'shopping_list_csv' %}">Download CSV</a> ·
+     <a href="{% url 'shopping_list_txt' %}">Plain text</a></p>
 {% else %}
-<p>Nothing to buy.</p>
+  <p class="muted">Nothing to buy.</p>
+{% endif %}
+{% if shortfall %}
+<figure class="fit">
+<table class="cards">
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col" class="num">For builds</th>
+      <th scope="col" class="num">Wanted</th>
+      <th scope="col" class="num">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in shortfall %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'part_detail' row.part_id %}">{{ row.name }}</a>
+        {% if row.value %}<span class="muted val">{{ row.value }}</span>{% endif %}
+      </th>
+      <td class="num sm-hide {% if not row.from_builds %}muted{% endif %}">{{ row.from_builds }}</td>
+      <td class="num sm-hide {% if not row.wanted %}muted{% endif %}">{{ row.wanted }}</td>
+      <td class="num" data-label="To buy"><strong class="zero">{{ row.total }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</figure>
+<p class="muted"><strong>For builds</strong> is what live projects asked
+   for and could not get. <strong>Wanted</strong> is what you put on the list
+   yourself, from a part's own page.</p>
 {% endif %}
 
 {% if running_low %}
 <h2>Running low</h2>
-<table>
-  <tr>
-    <th>Part</th>
-    <th>Owned</th>
-    <th>Held</th>
-    <th>Available</th>
-  </tr>
-  {% for part in running_low %}
-  <tr>
-    <td><a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>{% if part.value %} <code>{{ part.value }}</code>{% endif %}</td>
-    <td>{{ part.qty_owned }}</td>
-    <td>{{ part.held }}</td>
-    <td><b>{{ part.available }}</b></td>
-  </tr>
-  {% endfor %}
+<p class="muted">Fewest available first.</p>
+<figure class="fit">
+<table class="cards">
+  <thead>
+    <tr>
+      <th scope="col">Part</th>
+      <th scope="col" class="num">Owned</th>
+      <th scope="col" class="num">Held</th>
+      <th scope="col" class="num">Available</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for part in running_low %}
+    <tr>
+      <th scope="row">
+        <a href="{% url 'part_detail' part.pk %}">{{ part.name }}</a>
+        {% if part.value %}<span class="muted val">{{ part.value }}</span>{% endif %}
+      </th>
+      <td class="num muted sm-hide">{{ part.qty_owned }}</td>
+      <td class="num muted sm-hide">{{ part.held }}</td>
+      <td class="num {% if part.available == 0 %}zero{% endif %}" data-label="Available">
+        <strong>{{ part.available }}</strong>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
+</figure>
 {% endif %}
 {% endblock %}
