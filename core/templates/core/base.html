@@ -52,6 +52,39 @@
     .row-actions form { display:flex; gap:.35rem; align-items:center; margin:0; }
     .row-actions input[type=number] { width:4.5rem; margin:0; }
     .zero { color:var(--pico-del-color); font-weight:700; }
+
+    /* Phones. Same look, laid out in one column so buttons land where
+       a thumb can reach them and tables scroll inside their own box. */
+    @media (max-width: 600px) {
+      .container { padding-inline:1rem; }
+      h1 { font-size:1.35rem; }
+      .topbar { gap:.5rem 1rem; }
+      .topbar .spacer { display:none; }
+      figure { overflow-x:auto; }
+      table th, table td { padding:.5rem .5rem; }
+      .btn-sm { padding:.5rem .75rem; font-size:.85rem; }
+      .tag { padding:.25rem .6rem; }
+      main div[style*="display:flex"],
+      main form[style*="display:flex"] { flex-direction:column !important;
+                                         align-items:stretch !important; }
+      main div[style*="display:flex"] > *,
+      main form[style*="display:flex"] > * { flex:none !important; margin-left:0 !important;
+                                             width:100% !important; }
+      main div[style*="display:flex"] [role=button],
+      main div[style*="display:flex"] button,
+      main form[style*="display:flex"] button { width:100% !important; text-align:center; }
+      main form[style*="display:flex"] input:not([type=checkbox]) { width:100% !important;
+                                                                    display:block; }
+      main form[style*="display:flex"] input[type=checkbox] { width:1.25em !important;
+                                                                height:1.25em; }
+      .row-actions { justify-content:flex-start; }
+      .row-actions form { flex:1 1 100%; }
+      .row-actions input[type=number] { flex:1; width:auto; }
+      .row-actions button { flex:1; }
+      p > [role=button] { display:block; width:100%; text-align:center;
+                          margin-bottom:.5rem; }
+      .grid > article { text-align:left; }
+    }
   </style>
 </head>
 <body>
